@@ -145,6 +145,8 @@ class Config:
 
     values: Dict[str, object] = field(default_factory=dict)
     ranking_criteria: Dict[str, object] = field(default_factory=dict)
+    # State of filteredVCFannotation (filtered_vcf.FilteredVCF), set by validate()
+    filtered_vcf: object = None
 
     def __getitem__(self, key: str):
         return self.values[key]
@@ -475,10 +477,15 @@ def validate(config: Config, check_tools: bool = True,
 
     _resolve_samples(c, "snvIndelFiles", "snvIndelSamples")
     _resolve_samples(c, "candidateSnvIndelFiles", "candidateSnvIndelSamples")
-    # TODO(filteredVCF module): the Tcl code then runs
-    # `filteredVCFannotation "FULL" ...`, which clears candidateSnvIndelSamples
-    # when the candidate VCFs have no GT field. Hook it in when that module is
-    # ported.
+    if c["candidateSnvIndelFiles"]:
+        # Check that the candidate VCFs carry a GT field (else
+        # candidateSnvIndelSamples is cleared); the parsed positions are kept
+        # for the compound heterozygosity annotation.
+        from .filtered_vcf import FilteredVCF
+        c.filtered_vcf = FilteredVCF(c)
+        c.filtered_vcf.annotate("FULL")
+    else:
+        c["candidateSnvIndelSamples"] = []
 
     # bracketedAltMode: each comma-separated value is used as a regexp against
     # the authorised list, exactly as in Tcl.

@@ -15,6 +15,7 @@ from typing import List, Optional, Sequence
 from . import __version__
 from .config import ConfigExit, arguments_listing, collect_external_gene_files, configure, default_install_dir
 from .general import content_from_file
+from .sv_input import read_sv_input
 
 
 def show_help(install_dir: str) -> None:
@@ -70,8 +71,15 @@ def main(argv: Optional[Sequence[str]] = None, install_dir: Optional[str] = None
     collect_external_gene_files(config)
     print(arguments_listing(config))
 
-    # The VCF/BED input, annotation and ranking steps are ported in later modules.
-    print("The annotation steps are not ported to Python yet (configuration only).", file=sys.stderr)
+    try:
+        read_sv_input(config)
+    except ConfigExit as exc:
+        print(exc.message)
+        return exc.code
+
+    # The annotation and ranking steps are ported in later modules.
+    print("The annotation steps are not ported to Python yet (configuration and input reading only).",
+          file=sys.stderr)
     return 1
 
 
