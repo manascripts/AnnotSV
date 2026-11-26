@@ -13,7 +13,6 @@ share/AnnotSV/Annotations_Exomiser/
 # Python reimplementation of AnnotSV
 # + PhenoGenius install
 share/python3/annotsv/
-src/annotsv/
 Python/
 share/python3/phenogeniuscli/
 
