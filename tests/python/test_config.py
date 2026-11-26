@@ -26,7 +26,7 @@ def test_defaults_configfile_and_arguments(install_dir, sv_bed):
     assert c["annotationsDir"] == f"{install_dir}/share/AnnotSV"
     assert c["variantconvertDir"] == f"{install_dir}/share/python3/variantconvert/"
     assert c.ranking_criteria["1A_Loss"] == "0.5"
-    assert c.ranking_criteria["1B_Loss"] == -0.60
+    assert c.ranking_criteria["1B_Loss"] == "-0.60"
     cols = c["outputColHeader"]
     assert cols[:3] == ["AnnotSV_ID", "SV_chrom", "CytoBand"]
     assert "Closest_left" not in cols

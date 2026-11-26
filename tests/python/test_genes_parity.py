@@ -183,7 +183,8 @@ def test_genes_annotation_matches_tcl(tmp_path, input_file, case):
             _python(ann, str(out), inp, svt, sid, tx_file, mode, tx, info)
         results.append(root)
     header = open(results[1] / "out" / "x.annotated.tsv").readline() if (results[1] / "out" / "x.annotated.tsv").exists() else ""
-    n_cols = len(header.rstrip("\n").split("\t"))
+    # The ranking columns come after the columns not ported in this test: checked in test_ranking_parity
+    n_cols = len(header.rstrip("\n").split("\t")) - (3 if header.rstrip("\n").endswith("ACMG_class") else 0)
     t, p = (_collect(r / "out", n_cols) for r in results)
     assert sorted(t) == sorted(p)
     for name in t:

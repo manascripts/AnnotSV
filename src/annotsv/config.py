@@ -89,19 +89,20 @@ DEFAULT_OPTIONS: Dict[str, object] = {
     "vcf": "0",
 }
 
-DEFAULT_RANKING_CRITERIA: Dict[str, float] = {
-    "1A_Loss": 0.00, "1B_Loss": -0.60, "2A_Loss": 1.00, "2B_Loss": 0.00,
-    "2C-1_Loss": 0.90, "2C-2_Loss": 0.00, "2D-1_Loss": 0.00, "2D-2_Loss": 0.90,
-    "2D-3_Loss": 0.45, "2D-4_Loss": 0.90, "2E-1_Loss": 0.90, "2E-2_Loss": 0.45,
-    "2E-3_Loss": 0.30, "2E-4_Loss": 0.20, "2F-4O_Loss": -1.00, "2G_Loss": 0.00,
-    "2H_Loss": 0.15, "3A_Loss": 0.00, "3B_Loss": 0.45, "3C_Loss": 0.90,
-    "4O_Loss": -1.00, "5F_Loss": 0.00, "5G_Loss": 0.10, "5H_Loss": 0.30,
-    "1A_Gain": 0.00, "1B_Gain": -0.60, "2A_Gain": 1.00, "2B_Gain": 0.00,
-    "2C_Gain": -1.00, "2D_Gain": -1.00, "2E_Gain": 0.00, "2F_Gain": -1.00,
-    "2G_Gain": 0.00, "2H-1_Gain": 0.45, "2H-2_Gain": 0.00, "2I-1_Gain": 0.45,
-    "2I-2_Gain": 0.45, "2I-3_Gain": 0.00, "2J_Gain": 0.00, "2K_Gain": 0.45,
-    "2L_Gain": 0.00, "3A_Gain": 0.00, "3B_Gain": 0.45, "3C_Gain": 0.90,
-    "4O_Gain": 0.00, "5F_Gain": 0.00, "5G_Gain": 0.10, "5H_Gain": 0.15,
+# Kept as text: the criteria are written as is in AnnotSV_ranking_criteria (Tcl parity).
+DEFAULT_RANKING_CRITERIA: Dict[str, str] = {
+    "1A_Loss": "0.00", "1B_Loss": "-0.60", "2A_Loss": "1.00", "2B_Loss": "0.00",
+    "2C-1_Loss": "0.90", "2C-2_Loss": "0.00", "2D-1_Loss": "0.00", "2D-2_Loss": "0.90",
+    "2D-3_Loss": "0.45", "2D-4_Loss": "0.90", "2E-1_Loss": "0.90", "2E-2_Loss": "0.45",
+    "2E-3_Loss": "0.30", "2E-4_Loss": "0.20", "2F-4O_Loss": "-1.00", "2G_Loss": "0.00",
+    "2H_Loss": "0.15", "3A_Loss": "0.00", "3B_Loss": "0.45", "3C_Loss": "0.90",
+    "4O_Loss": "-1.00", "5F_Loss": "0.00", "5G_Loss": "0.10", "5H_Loss": "0.30",
+    "1A_Gain": "0.00", "1B_Gain": "-0.60", "2A_Gain": "1.00", "2B_Gain": "0.00",
+    "2C_Gain": "-1.00", "2D_Gain": "-1.00", "2E_Gain": "0.00", "2F_Gain": "-1.00",
+    "2G_Gain": "0.00", "2H-1_Gain": "0.45", "2H-2_Gain": "0.00", "2I-1_Gain": "0.45",
+    "2I-2_Gain": "0.45", "2I-3_Gain": "0.00", "2J_Gain": "0.00", "2K_Gain": "0.45",
+    "2L_Gain": "0.00", "3A_Gain": "0.00", "3B_Gain": "0.45", "3C_Gain": "0.90",
+    "4O_Gain": "0.00", "5F_Gain": "0.00", "5G_Gain": "0.10", "5H_Gain": "0.15",
 }
 
 # Options a user may set (configfile or command line), in Tcl order.

@@ -2,7 +2,7 @@
 # checkOverlappedGenesBenignFiles, genesAnnotation and OrganizeAnnotation with the benign SV and
 # partially overlapped benign SV columns. A Tcl error writes "1" in EXIT.
 set dir [lindex $argv 0]
-foreach m {general config vcf genes write closestgenes omim pathogenicsv pathogenicsnvindel benignsv} {
+foreach m {general ranking config vcf genes write closestgenes omim pathogenicsv pathogenicsnvindel benignsv} {
     source $dir/share/tcl/AnnotSV/AnnotSV-$m.tcl
 }
 set auto_path [linsert $::auto_path 0 $dir/share/tcl/AnnotSV/tcllib]
@@ -16,7 +16,7 @@ array set g_AnnotSV [list annotationsDir $annDir organism Human genomeBuild $bui
     geneBasedAnn 0 PhenoGeniusCli 0 Exomiser 0 ranking 0 candidateGenesFiltering 0 metrics $metrics \
     rankFiltering {1 2 3 4 5 NA} promAnn 0 EAann 0 GHann 0 miRNAann 0 ABCann 0 MPRAann 0 overlap 100 \
     extann "" outputColHeader [concat AnnotSV_ID Samples_ID $cols] svtTSVcol -1 samplesidTSVcol -1 vcf 0]
-foreach p {regulatoryElementsAnnotation SVprepareRanking} {proc $p args {return ""}}
+foreach p {regulatoryElementsAnnotation} {proc $p args {return ""}}
 rename exit _e; set done 0
 proc exit {{c 0}} {global g_AnnotSV done; if {$done} {_e 0}; set f [open $g_AnnotSV(outputDir)/EXIT w]; puts $f $c; close $f; _e 0}
 
