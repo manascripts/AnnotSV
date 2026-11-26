@@ -15,7 +15,9 @@ from typing import List, Optional, Sequence
 from . import __version__
 from .config import ConfigExit, arguments_listing, collect_external_gene_files, configure, default_install_dir
 from .general import content_from_file
+from .genes import check_genes_file, genes_annotation
 from .sv_input import read_sv_input
+from .write import organize_annotation
 
 
 def show_help(install_dir: str) -> None:
@@ -72,15 +74,22 @@ def main(argv: Optional[Sequence[str]] = None, install_dir: Optional[str] = None
     print(arguments_listing(config))
 
     try:
-        read_sv_input(config)
+        sv = read_sv_input(config)
+        check_genes_file(config)
+        genes = genes_annotation(config)
+        organize_annotation(config, genes, vcf_header=sv.vcf_header, svlen=sv.svlen,
+                            header_file_to_remove=sv.header_file_to_remove)
     except ConfigExit as exc:
         print(exc.message)
         return exc.code
+    if re.search(r"\.bed$", config["SVinputFile"]):
+        header = re.sub(r".bed$", lambda _m: ".header.tsv", config["SVinputFile"], count=1, flags=re.I)
+        if os.path.isfile(header):
+            os.remove(header)
 
-    # The annotation and ranking steps are ported in later modules.
-    print("The annotation steps are not ported to Python yet (configuration and input reading only).",
-          file=sys.stderr)
-    return 1
+    # The other annotation sources and the ranking are ported in later modules.
+    print("Only the core gene annotation columns are ported to Python so far.", file=sys.stderr)
+    return 0
 
 
 if __name__ == "__main__":

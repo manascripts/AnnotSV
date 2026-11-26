@@ -21,5 +21,8 @@ def test_bad_option_exit_code(capsys, install_dir, sv_bed):
 
 
 def test_config_run_lists_arguments(capsys, install_dir, sv_bed):
-    assert cli.main(["-SVinputFile", sv_bed], install_dir=install_dir, check_tools=False) == 1
-    assert "AnnotSV has been run with these arguments" in capsys.readouterr().out
+    # No annotation bundle in the test install: the genes file check exits with 2, as in Tcl
+    assert cli.main(["-SVinputFile", sv_bed], install_dir=install_dir, check_tools=False) == 2
+    out = capsys.readouterr().out
+    assert "AnnotSV has been run with these arguments" in out
+    assert "Please check your install - Exit with error." in out
