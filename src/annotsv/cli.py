@@ -13,6 +13,7 @@ import sys
 from typing import List, Optional, Sequence
 
 from . import __version__
+from . import regions
 from .config import ConfigExit, arguments_listing, collect_external_gene_files, configure, default_install_dir
 from .general import content_from_file
 from .closest_genes import ClosestGenes
@@ -80,7 +81,14 @@ def main(argv: Optional[Sequence[str]] = None, install_dir: Optional[str] = None
         check_genes_file(config)
         check_gene_based_files(config)
         check_gene_intolerance_files(config)
+        # Breakpoint annotations, then cytoband
+        regions.check_fasta_files(config)
+        regions.check_breakpoint_files(config)
+        regions.check_cytoband(config)
         check_regulatory_elements_files(config)
+        regions.check_tad_files(config)
+        regions.check_cosmic_file(config)
+        regions.check_users_bed(config)
         # bin/AnnotSV lists the gene-based files once every check* proc has built them
         collect_external_gene_files(config)
         genes = genes_annotation(config)
@@ -88,7 +96,8 @@ def main(argv: Optional[Sequence[str]] = None, install_dir: Optional[str] = None
         organize_annotation(config, genes, vcf_header=sv.vcf_header, svlen=sv.svlen,
                             closest_genes=ClosestGenes(config), regulatory=regulatory.re,
                             header_file_to_remove=sv.header_file_to_remove,
-                            gene_based=GeneBasedAnnotations(config))
+                            gene_based=GeneBasedAnnotations(config),
+                            regions=regions.RegionAnnotations(config))
     except ConfigExit as exc:
         print(exc.message)
         return exc.code
