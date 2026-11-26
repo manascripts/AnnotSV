@@ -1,7 +1,7 @@
 # Runs checkGenes*File, genesAnnotation and OrganizeAnnotation with every
-# other annotation switched off or stubbed (core output columns only).
+# other annotation switched off or stubbed (core output columns and nearest genes).
 set dir [lindex $argv 0]
-foreach m {general config vcf genes write} {source $dir/share/tcl/AnnotSV/AnnotSV-$m.tcl}
+foreach m {general config vcf genes write closestgenes} {source $dir/share/tcl/AnnotSV/AnnotSV-$m.tcl}
 lassign [lrange $argv 1 end] annDir outDir input svt sid txFile mode tx info
 array set g_AnnotSV [list annotationsDir $annDir organism Human genomeBuild GRCh38 outputDir $outDir \
     outputFile x.annotated.tsv SVinputFile $input svtBEDcol $svt samplesidBEDcol $sid txFile $txFile \
@@ -13,7 +13,6 @@ array set g_AnnotSV [list annotationsDir $annDir organism Human genomeBuild GRCh
     svtTSVcol -1 samplesidTSVcol -1 vcf 0]
 foreach p {regulatoryElementsAnnotation SVprepareRanking pathogenicSVannotation poPathogenicSVannotation
            pathoSNVindelAnnotation benignSVannotation poBenignSVannotation} {proc $p args {return ""}}
-proc closestGenesAnnotation args {return {}}
 rename exit _e; set done 0
 proc exit {{c 0}} {global g_AnnotSV done; if {$done} {_e 0}; set f [open $g_AnnotSV(outputDir)/EXIT w]; puts $f $c; close $f; _e 0}
 
