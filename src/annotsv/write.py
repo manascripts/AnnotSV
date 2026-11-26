@@ -349,7 +349,7 @@ def organize_annotation(config, genes: GenesResult, vcf_header: Optional[str] = 
                         closest_genes: Optional[Callable[[str, str, str], List[str]]] = None,
                         regulatory: Optional[Dict[str, str]] = None,
                         header_file_to_remove: bool = False,
-                        gene_based=None, regions=None, pathogenic=None) -> str:
+                        gene_based=None, regions=None, pathogenic=None, benign=None) -> str:
     """OrganizeAnnotation, core columns only. Returns the output file path.
 
     ``vcf_header`` and ``svlen`` come from the SV input step (``VCFheader``,
@@ -366,7 +366,9 @@ def organize_annotation(config, genes: GenesResult, vcf_header: Optional[str] = 
     blacklist), before the gene-based columns. ``pathogenic`` is a
     ``pathogenic.PathogenicAnnotations``: the pathogenic SV, partially
     overlapped pathogenic SV and pathogenic SNV/indel columns, right after
-    ``RE_gene``.
+    ``RE_gene``. ``benign`` is a ``benign.BenignAnnotations``: the benign SV
+    and partially overlapped benign SV columns, right after the pathogenic
+    ones.
     """
     c = config
     svlen = svlen if svlen is not None else {}
@@ -381,6 +383,8 @@ def organize_annotation(config, genes: GenesResult, vcf_header: Optional[str] = 
     header, bed_length = build_header(c, vcf_header, cyto_header)
     if pathogenic is not None:
         header += pathogenic.header()
+    if benign is not None:
+        header += benign.header()
     if regions is not None:
         parts = regions.header_parts()
         header += "".join(parts[k] for k in REGION_KEYS)
@@ -461,6 +465,8 @@ def organize_annotation(config, genes: GenesResult, vcf_header: Optional[str] = 
             else:
                 r_start, r_end = sv_left, sv_right
             p_text = pathogenic.text(chrom, r_start, r_end, sv_left, sv_right, mode) if pathogenic is not None else ""
+            if benign is not None:
+                p_text += benign.text(chrom, r_start, r_end, sv_left, sv_right, mode, col["Gene_name"])
             if regions is not None:
                 cyto = regions.cytoband_text(chrom, r_start, r_end)
                 text += f"\t{mode}" + (f"\t{cyto}" if cyto is not None else "")
