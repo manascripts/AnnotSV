@@ -29,6 +29,7 @@ import pytest
 
 from test_genes_parity import ROOT
 from annotsv import exomiser as exo_mod
+from annotsv import helpers as pg_helpers, tcl
 from annotsv.config import Config
 from annotsv.exomiser import Exomiser, check_exomiser_installation
 from annotsv.phenogenius import PhenoGenius, check_phenogenius_cli
@@ -261,6 +262,8 @@ def test_exomiser_matches_tcl(tmp_path, monkeypatch, case):
             monkeypatch.setattr(exo_mod, "WAIT_SECONDS", 0.2)
             for k, v in env.items():
                 monkeypatch.setenv(k, v)
+            # the Tcl side runs the fake searchForAFreePortNumber.sh
+            monkeypatch.setattr(exo_mod.helpers, "search_for_a_free_port", lambda: (False, str(port)))
             got = _exomiser_python(values)
             dump.write_text(got)
         results.append((got, _listing(values["outputDir"])))
@@ -330,6 +333,10 @@ def test_phenogenius_matches_tcl(tmp_path, monkeypatch, case):
         else:
             for k, v in env.items():
                 monkeypatch.setenv(k, v)
+            # the Tcl side runs the fake checkPhenoGeniusCliInstall.sh
+            fake = os.path.join(values["bashDir"], "checkPhenoGeniusCliInstall.sh")
+            monkeypatch.setattr(pg_helpers, "check_phenogenius_cli_install",
+                                lambda share, fake=fake: tcl.exec_command([fake, share]))
             got = _phenogenius_python(values)
             dump.write_text(got)
         logs = os.listdir(os.path.join(values["installDir"], "share", "python3", "phenogeniuscli"))

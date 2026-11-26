@@ -15,6 +15,7 @@ requires-python = ">=3.9"
 [project.scripts]
 AnnotSV = "annotsv.cli:main"
 AnnotSV-install = "annotsv.install:main"
+AnnotSV-liftover = "annotsv.liftover:main"
 
 [project.optional-dependencies]
 test = ["pytest"]
@@ -30,8 +31,6 @@ where = ["src"]
 # are not packaged: see "AnnotSV-install".
 [tool.setuptools.data-files]
 "etc/AnnotSV" = ["etc/AnnotSV/configfile", "etc/AnnotSV/application.properties"]
-"share/bash/AnnotSV" = ["share/bash/AnnotSV/checkPhenoGeniusCliInstall.sh",
-                        "share/bash/AnnotSV/searchForAFreePortNumber.sh"]
 "share/doc/AnnotSV" = ["commandLineOptions.txt", "License.txt", "changeLog.txt"]
 
 [tool.pytest.ini_options]
