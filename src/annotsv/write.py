@@ -349,7 +349,7 @@ def organize_annotation(config, genes: GenesResult, vcf_header: Optional[str] = 
                         closest_genes: Optional[Callable[[str, str, str], List[str]]] = None,
                         regulatory: Optional[Dict[str, str]] = None,
                         header_file_to_remove: bool = False,
-                        gene_based=None, regions=None) -> str:
+                        gene_based=None, regions=None, pathogenic=None) -> str:
     """OrganizeAnnotation, core columns only. Returns the output file path.
 
     ``vcf_header`` and ``svlen`` come from the SV input step (``VCFheader``,
@@ -363,7 +363,10 @@ def organize_annotation(config, genes: GenesResult, vcf_header: Optional[str] = 
     ``Annotation_mode``, then after ``RE_gene`` the user SVincludedInFt BED
     files, TAD, the user FtIncludedInSV, AnyOverlap and BNDproximity BED files
     and the breakpoint columns (GC content, Repeat, Gap, SegDup, ENCODE
-    blacklist), before the gene-based columns.
+    blacklist), before the gene-based columns. ``pathogenic`` is a
+    ``pathogenic.PathogenicAnnotations``: the pathogenic SV, partially
+    overlapped pathogenic SV and pathogenic SNV/indel columns, right after
+    ``RE_gene``.
     """
     c = config
     svlen = svlen if svlen is not None else {}
@@ -376,6 +379,8 @@ def organize_annotation(config, genes: GenesResult, vcf_header: Optional[str] = 
     REGION_KEYS = ("SVincludedInFt", "TAD", "FtIncludedInSV", "AnyOverlap", "BNDproximity", "breakpoints")
     cyto_header = regions.cytoband_header() if regions is not None else ""
     header, bed_length = build_header(c, vcf_header, cyto_header)
+    if pathogenic is not None:
+        header += pathogenic.header()
     if regions is not None:
         parts = regions.header_parts()
         header += "".join(parts[k] for k in REGION_KEYS)
@@ -451,18 +456,19 @@ def organize_annotation(config, genes: GenesResult, vcf_header: Optional[str] = 
                     text += f"\t{svtype}"
                 if sid_col != -1:
                     text += f"\t{samplesid}"
+            if mode == "split":
+                r_start, r_end = col["Intersect_start"], col["Intersect_end"]
+            else:
+                r_start, r_end = sv_left, sv_right
+            p_text = pathogenic.text(chrom, r_start, r_end, sv_left, sv_right, mode) if pathogenic is not None else ""
             if regions is not None:
-                if mode == "split":
-                    r_start, r_end = col["Intersect_start"], col["Intersect_end"]
-                else:
-                    r_start, r_end = sv_left, sv_right
                 cyto = regions.cytoband_text(chrom, r_start, r_end)
                 text += f"\t{mode}" + (f"\t{cyto}" if cyto is not None else "")
-                text += "\t" + "\t".join(col[k] for k in GENE_COLUMNS.split("\t"))
+                text += "\t" + "\t".join(col[k] for k in GENE_COLUMNS.split("\t")) + p_text
                 r_texts = regions.texts(chrom, r_start, r_end, sv_left, sv_right, mode)
                 text += "".join(r_texts[k] for k in REGION_KEYS)
             else:
-                text += f"\t{mode}\t" + "\t".join(col[k] for k in GENE_COLUMNS.split("\t"))
+                text += f"\t{mode}\t" + "\t".join(col[k] for k in GENE_COLUMNS.split("\t")) + p_text
             if gene_based is not None and gene_based.enabled:
                 text += "\t" + "\t".join(gene_based.text(col["Gene_name"], mode))
 
