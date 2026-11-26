@@ -42,3 +42,8 @@ share/python3/variantconvert/src/variantconvert/converters/__pycache__/*.pyc
 share/python3/variantconvert/src/variantconvert.egg-info/
 
 
+
+# Python
+__pycache__/
+*.egg-info/
+.pytest_cache/
