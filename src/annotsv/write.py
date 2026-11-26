@@ -36,8 +36,10 @@ from .general import (
     replace_text_in_file,
     write_text_in_file,
 )
+from .filtered_vcf import FilteredVCF
 from .gene_based import is_candidate
 from .genes import GenesResult, TranscriptVersions, unix_sort_bed
+from .snv_indel import SnvIndelCounts
 
 GENE_COLUMNS = ("Gene_name\tClosest_left\tClosest_right\tGene_count\tTx\tTx_version\tTx_start\tTx_end"
                 "\tOverlapped_tx_length\tOverlapped_CDS_length\tOverlapped_CDS_percent\tFrameshift"
@@ -368,7 +370,9 @@ def organize_annotation(config, genes: GenesResult, vcf_header: Optional[str] = 
     overlapped pathogenic SV and pathogenic SNV/indel columns, right after
     ``RE_gene``. ``benign`` is a ``benign.BenignAnnotations``: the benign SV
     and partially overlapped benign SV columns, right after the pathogenic
-    ones.
+    ones. With ``snvIndelFiles`` / ``candidateSnvIndelFiles`` set, the
+    SNV/indel counts (``snv_indel.SnvIndelCounts``) and the compound_htz
+    columns (``config.filtered_vcf``) come right after TAD.
     """
     c = config
     svlen = svlen if svlen is not None else {}
@@ -385,9 +389,20 @@ def organize_annotation(config, genes: GenesResult, vcf_header: Optional[str] = 
         header += pathogenic.header()
     if benign is not None:
         header += benign.header()
+    # SNV/indel counts (VCFannotation) and compound htz (filteredVCFannotation):
+    # after TAD, before the user FtIncludedInSV BED files.
+    snv_counts = SnvIndelCounts(c) if c.get("snvIndelFiles") else None
+    compound = None
+    snv_header = snv_counts.header() if snv_counts is not None else ""
+    if c.get("candidateSnvIndelFiles"):
+        compound = c.filtered_vcf if c.filtered_vcf is not None else FilteredVCF(c)
+        c.filtered_vcf = compound
+        snv_header += "".join(f"\tcompound_htz({s})" for s in c["candidateSnvIndelSamples"])
     if regions is not None:
         parts = regions.header_parts()
-        header += "".join(parts[k] for k in REGION_KEYS)
+        header += "".join(parts[k] + (snv_header if k == "TAD" else "") for k in REGION_KEYS)
+    else:
+        header += snv_header
     if gene_based is not None:
         header += gene_based.header()
     replace_text_in_file(header, output_file)
@@ -467,14 +482,22 @@ def organize_annotation(config, genes: GenesResult, vcf_header: Optional[str] = 
             p_text = pathogenic.text(chrom, r_start, r_end, sv_left, sv_right, mode) if pathogenic is not None else ""
             if benign is not None:
                 p_text += benign.text(chrom, r_start, r_end, sv_left, sv_right, mode, col["Gene_name"])
+            snv_text = ""
+            if snv_counts is not None:
+                snv_text += "\t" + snv_counts.text(chrom, r_start, r_end, svtype)
+            if compound is not None:
+                if mode == "split":
+                    snv_text += "\t" + compound.annotate(chrom, col["Tx_start"], col["Tx_end"], ls, header)
+                else:
+                    snv_text += "\t" + compound.annotate("FULL")
             if regions is not None:
                 cyto = regions.cytoband_text(chrom, r_start, r_end)
                 text += f"\t{mode}" + (f"\t{cyto}" if cyto is not None else "")
                 text += "\t" + "\t".join(col[k] for k in GENE_COLUMNS.split("\t")) + p_text
                 r_texts = regions.texts(chrom, r_start, r_end, sv_left, sv_right, mode)
-                text += "".join(r_texts[k] for k in REGION_KEYS)
+                text += "".join(r_texts[k] + (snv_text if k == "TAD" else "") for k in REGION_KEYS)
             else:
-                text += f"\t{mode}\t" + "\t".join(col[k] for k in GENE_COLUMNS.split("\t")) + p_text
+                text += f"\t{mode}\t" + "\t".join(col[k] for k in GENE_COLUMNS.split("\t")) + p_text + snv_text
             if gene_based is not None and gene_based.enabled:
                 text += "\t" + "\t".join(gene_based.text(col["Gene_name"], mode))
 

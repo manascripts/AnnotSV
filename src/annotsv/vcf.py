@@ -6,7 +6,7 @@ skips to the ``*.unannotated.tsv`` file, and returns what the Tcl code kept in
 the ``VCFheader`` and ``g_SVLEN`` globals.
 
 ``dichotomy_search`` replaces ``DichotomySearch``. ``VCFannotation`` (the
-SNV/indel counts inside an SV) is ported with the SNV/indel annotation module.
+SNV/indel counts inside an SV) is in ``snv_indel.py``.
 """
 
 from __future__ import annotations
