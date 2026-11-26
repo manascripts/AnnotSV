@@ -103,8 +103,11 @@ def _annotations(tmp_path, input_file, tx):
     gdir.mkdir(parents=True)
     rows = _genes_rows(input_file)
     if tx == "RefSeq":
-        with gzip.open(gdir / "ncbiRefSeq.txt.gz", "wt") as f:
-            f.write("".join("\t".join(r) + "\n" for r in rows))
+        # mtime=0: the gzip header otherwise holds the write time, and the two
+        # sides are compared byte for byte (flaky when they straddle a second)
+        data = "".join("\t".join(r) + "\n" for r in rows).encode()
+        with gzip.GzipFile(gdir / "ncbiRefSeq.txt.gz", "wb", mtime=0) as f:
+            f.write(data)
     else:
         bed = [[r[2][3:], r[4], r[5], r[3], r[12], r[1].replace("NM_", "ENST"), r[6], r[7], r[9], r[10]]
                for r in rows if not r[2].endswith("_alt")]

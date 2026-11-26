@@ -10,8 +10,11 @@ readme = "README.md"
 license = { text = "GPL-3.0-or-later" }
 requires-python = ">=3.9"
 
+# "AnnotSV" replaces bin/AnnotSV (one name only: "annotsv" would clash with it
+# on case-insensitive file systems; "python -m annotsv" also works)
 [project.scripts]
-annotsv = "annotsv.cli:main"
+AnnotSV = "annotsv.cli:main"
+AnnotSV-install = "annotsv.install:main"
 
 [project.optional-dependencies]
 test = ["pytest"]
@@ -21,6 +24,15 @@ version = { attr = "annotsv.__version__" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+# Non-Python files AnnotSV reads at run time, installed under sys.prefix with
+# the Makefile layout (default_install_dir() finds them there). Annotations
+# are not packaged: see "AnnotSV-install".
+[tool.setuptools.data-files]
+"etc/AnnotSV" = ["etc/AnnotSV/configfile", "etc/AnnotSV/application.properties"]
+"share/bash/AnnotSV" = ["share/bash/AnnotSV/checkPhenoGeniusCliInstall.sh",
+                        "share/bash/AnnotSV/searchForAFreePortNumber.sh"]
+"share/doc/AnnotSV" = ["commandLineOptions.txt", "License.txt", "changeLog.txt"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests/python"]

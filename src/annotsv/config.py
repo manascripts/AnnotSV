@@ -19,6 +19,7 @@ import glob
 import gzip
 import os
 import re
+import sys
 import shlex
 import subprocess
 from dataclasses import dataclass, field
@@ -169,15 +170,19 @@ def default_install_dir() -> str:
     """Directory holding ``etc/``, ``share/`` and ``commandLineOptions.txt``.
 
     ``$ANNOTSV`` wins when set; otherwise the repository root this package
-    lives in (``<root>/src/annotsv``); otherwise the current directory.
+    lives in (``<root>/src/annotsv``, source tree or editable install);
+    otherwise the Python prefix, where ``pip install`` puts ``etc/AnnotSV``
+    and ``share/`` (the Makefile layout with PREFIX=sys.prefix); otherwise
+    the current directory.
     """
     env = os.environ.get("ANNOTSV")
     if env:
         return os.path.abspath(env.rstrip("/") or "/")
     here = os.path.dirname(os.path.abspath(__file__))
     root = os.path.dirname(os.path.dirname(here))
-    if os.path.isdir(os.path.join(root, "etc", "AnnotSV")):
-        return root
+    for candidate in (root, sys.prefix):
+        if os.path.isdir(os.path.join(candidate, "etc", "AnnotSV")):
+            return candidate
     return os.getcwd()
 
 

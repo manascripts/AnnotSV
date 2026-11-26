@@ -1,0 +1,3 @@
+include etc/AnnotSV/configfile etc/AnnotSV/application.properties
+include share/bash/AnnotSV/*.sh
+include commandLineOptions.txt License.txt changeLog.txt
