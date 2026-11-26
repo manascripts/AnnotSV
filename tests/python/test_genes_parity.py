@@ -16,6 +16,7 @@ import subprocess
 
 import pytest
 
+from annotsv.closest_genes import ClosestGenes
 from annotsv.config import Config, ConfigExit
 from annotsv.genes import check_genes_file, genes_annotation
 from annotsv.sv_input import read_sv_input
@@ -86,6 +87,11 @@ def _genes_rows(input_file):
             for t in range(rnd.randint(1, 3)):
                 name = f"NM_{k:05d}{t}.{rnd.randint(1, 9)}" if rnd.random() < 0.9 else f"NR_{k:05d}{t}"
                 rows.append(_transcript(rnd, name, chrom, strand, gene, pos + rnd.randint(-5000, 5000)))
+        for _ in range(rnd.randint(0, 2)):             # nearest genes, inside or beyond 5 Mb
+            gene = f"F{k}" if rnd.random() < 0.8 else f"G{max(0, k - 1)}"
+            k += 1
+            rows.append(_transcript(rnd, f"NM_8{k:05d}.1", chrom, rnd.choice("+-"), gene,
+                                    max(0, pos + rnd.choice((-1, 1)) * rnd.randint(20000, 6000000))))
         if rnd.random() < 0.1:
             rows.append(list(rows[-1]))                    # duplicated line
             rows.append(_transcript(rnd, f"NM_9{k}.1", chrom + "_alt", "+", "ALT", pos))
@@ -122,7 +128,7 @@ def _python(ann, out, input_file, svt, sid, tx_file, mode, tx, info):
         with open(os.path.join(out, "genes.txt"), "w") as f:
             for k in sorted(g.genes_by_sv):
                 f.write(f"{k}={g.genes_by_sv[k]}\n")
-        organize_annotation(c, g, vcf_header=sv.vcf_header, svlen=sv.svlen,
+        organize_annotation(c, g, vcf_header=sv.vcf_header, svlen=sv.svlen, closest_genes=ClosestGenes(c),
                             header_file_to_remove=sv.header_file_to_remove)
     except ConfigExit as e:
         with open(os.path.join(out, "EXIT"), "w") as f:
