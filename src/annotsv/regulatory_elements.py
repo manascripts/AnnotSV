@@ -29,7 +29,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
-from . import tcl
+from . import gene_based, tcl
 from .config import ConfigExit
 from .general import write_text_in_file
 from .genes import genes_dir
@@ -127,14 +127,12 @@ def _reg_dir(config) -> str:
 # Gene name lists (isARefSeqGeneName, isAnENSEMBLgeneName, isMorbid, isCandidate)
 # --------------------------------------------------------------------------
 class GeneLists:
-    """The lazily loaded gene sets of ``g_exist``, ``g_morbid`` and ``g_candidate``."""
+    """The lazily loaded gene sets of ``g_exist`` (``g_morbid`` and ``g_candidate`` are in gene_based)."""
 
     def __init__(self, config):
         self.config = config
         self._refseq = None
         self._ensembl = None
-        self._morbid = None
-        self._candidate = None
 
     def is_refseq(self, gene: str) -> bool:
         if self._refseq is None:
@@ -151,27 +149,12 @@ class GeneLists:
         return gene in self._ensembl
 
     def is_morbid(self, gene: str) -> bool:
-        """isMorbid (AnnotSV-omim.tcl)."""
-        if self._morbid is None:
-            c = self.config
-            self._morbid = set()
-            files = glob.glob(f"{c['annotationsDir']}/Annotations_{c['organism']}/Gene-based/OMIM/*_morbid.tsv.gz")
-            if files:
-                # "gzip -cd $morbidFile": every file of the glob list, one after the other
-                text = "".join(_read(p) for p in files)
-                for L in _eof_loop_lines(text):
-                    self._morbid.add(tcl.lindex(L, 0))
-        return gene in self._morbid
+        """isMorbid (AnnotSV-omim.tcl, ported in gene_based)."""
+        return gene_based.is_morbid(self.config, gene)
 
     def is_candidate(self, gene: str) -> bool:
-        """isCandidate (AnnotSV-candidategenes.tcl)."""
-        if self._candidate is None:
-            self._candidate = set()
-            path = self.config.get("candidateGenesFile", "")
-            if path:
-                for L in _eof_loop_lines(_read(path)):
-                    self._candidate.update(tcl.split_chars(L, " |\n|\t"))
-        return gene in self._candidate
+        """isCandidate (AnnotSV-candidategenes.tcl, ported in gene_based)."""
+        return gene_based.is_candidate(self.config, gene)
 
 
 def _gene_lists(config) -> GeneLists:
