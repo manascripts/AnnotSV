@@ -352,7 +352,8 @@ def organize_annotation(config, genes: GenesResult, vcf_header: Optional[str] = 
                         closest_genes: Optional[Callable[[str, str, str], List[str]]] = None,
                         regulatory: Optional[Dict[str, str]] = None,
                         header_file_to_remove: bool = False,
-                        gene_based=None, regions=None, pathogenic=None, benign=None) -> str:
+                        gene_based=None, regions=None, pathogenic=None, benign=None,
+                        phenogenius=None, exomiser=None) -> str:
     """OrganizeAnnotation, core columns only. Returns the output file path.
 
     ``vcf_header`` and ``svlen`` come from the SV input step (``VCFheader``,
@@ -373,7 +374,11 @@ def organize_annotation(config, genes: GenesResult, vcf_header: Optional[str] = 
     and partially overlapped benign SV columns, right after the pathogenic
     ones. With ``snvIndelFiles`` / ``candidateSnvIndelFiles`` set, the
     SNV/indel counts (``snv_indel.SnvIndelCounts``) and the compound_htz
-    columns (``config.filtered_vcf``) come right after TAD.
+    columns (``config.filtered_vcf``) come right after TAD. ``phenogenius`` /
+    ``exomiser`` are the ``phenogenius.PhenoGenius`` / ``exomiser.Exomiser``
+    objects run by regulatoryElementsAnnotation (columns written when
+    ``config["PhenoGeniusCli"]`` / ``config["Exomiser"]`` is "1"). With
+    ``-vcf 1``, variantconvert writes the VCF output at the end.
     """
     c = config
     svlen = svlen if svlen is not None else {}
@@ -406,7 +411,12 @@ def organize_annotation(config, genes: GenesResult, vcf_header: Optional[str] = 
         header += snv_header
     if gene_based is not None:
         header += gene_based.header()
-    # PhenoGenius and Exomiser columns: not ported yet (they come here, before the ranking)
+    pheno_on = phenogenius is not None and str(c.get("PhenoGeniusCli", "0")) == "1"
+    exo_on = exomiser is not None and str(c.get("Exomiser", "0")) == "1"
+    if pheno_on:
+        header += "\tPhenoGenius_score\tPhenoGenius_phenotype\tPhenoGenius_specificity"
+    if exo_on:
+        header += "\tExomiser_gene_pheno_score\tHuman_pheno_evidence\tMouse_pheno_evidence\tFish_pheno_evidence"
 
     # Preparation for the ranking (svtTSVcol / svtBEDcol are set there for a VCF input)
     ranking = Ranking(c)
@@ -440,6 +450,7 @@ def organize_annotation(config, genes: GenesResult, vcf_header: Optional[str] = 
     svinput_info = str(c["SVinputInfo"]) == "1"
     order: List[str] = []
     text_by_id: Dict[str, List[str]] = {}
+    best_exomiser: Dict[str, str] = {}
     annotsv_id = ""
 
     with open(genes.full_and_split_file, "r", newline="") as f:
@@ -524,10 +535,39 @@ def organize_annotation(config, genes: GenesResult, vcf_header: Optional[str] = 
                 text += f"\t{mode}\t" + "\t".join(col[k] for k in GENE_COLUMNS.split("\t")) + p_text + snv_text
             if gene_based is not None and gene_based.enabled:
                 text += "\t" + "\t".join(gene_based.text(col["Gene_name"], mode))
+            gene_name = col["Gene_name"]
+            gene_list = gene_name.split(";") if gene_name != "" else []   # Tcl: split "" -> {}
+            if pheno_on:
+                if mode == "split":
+                    text += "\t" + phenogenius.annotation(gene_name, "all")
+                else:
+                    best = ""
+                    for g in gene_list:
+                        spec = phenogenius.annotation(g, "specificity")
+                        if spec == "":
+                            continue
+                        if best == "" or tcl.compare(spec, best) < 0:   # "A" < "B"
+                            best = spec
+                    text += f"\t\t\t{best}"
+            exomiser_text = ""
+            if exo_on:
+                if mode == "split":
+                    exomiser_text = exomiser.annotation(gene_name, "all")
+                else:
+                    best = "-1.0"
+                    for g in gene_list:
+                        score = exomiser.annotation(g, "score")
+                        if tcl.compare(score, best) > 0:
+                            best = score
+                    exomiser_text = f"{best}\t\t\t"
+                text += "\t" + exomiser_text
 
             if annotsv_id not in text_by_id:
                 order.append(annotsv_id)
                 text_by_id[annotsv_id] = []
+                # Tcl keeps the score of the first line met for this SV (full or split)
+                if exo_on:
+                    best_exomiser[annotsv_id] = exomiser_text.split("\t")[0]
             # Ranking: score computed with the full line, then completed with the split lines
             if ranking.enabled:
                 ranking.rank(text, svtype)
@@ -535,10 +575,10 @@ def organize_annotation(config, genes: GenesResult, vcf_header: Optional[str] = 
                 text_by_id[annotsv_id].append(text)
 
     # Finalize the ranking, then order the SV: from the higher to the lower ranking score, then
-    # from the higher to the lower Exomiser score (not ported yet: -1), then in the input order
+    # from the higher to the lower Exomiser score (-1 without Exomiser), then in the input order
     if ranking.enabled:
         ranking.achieve_all(order)
-        order = ranking.sort_ids(order, exomiser_scores=None)
+        order = ranking.sort_ids(order, exomiser_scores=best_exomiser)
 
     i_mode = hcols.index("Annotation_mode")
     i_gene = hcols.index("Gene_name")
@@ -592,6 +632,11 @@ def organize_annotation(config, genes: GenesResult, vcf_header: Optional[str] = 
 
     print(f"\n...output columns annotation:")
     print("\t" + header.replace("\t", ";") + "\n")
+
+    # VCF output
+    if str(c.get("vcf", "0")) == "1":
+        from .variantconvert import run_variantconvert
+        run_variantconvert(c, output_file)
     return output_file
 
 

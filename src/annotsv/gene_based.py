@@ -946,8 +946,9 @@ def check_cnv_intolerance_file(config) -> None:
 
 
 def check_gene_based_files(config, gene_lists=None) -> None:
-    """checkGenCCgeneFile ... checkLOEUFfile, as called from ``bin/AnnotSV``
-    (the Exomiser and PhenoGenius checks are not ported yet)."""
+    """checkGenCCgeneFile ... checkLOEUFfile, as called from ``bin/AnnotSV``."""
+    from .exomiser import check_exomiser_installation
+    from .phenogenius import check_phenogenius_cli
     if gene_lists is None:
         from .regulatory_elements import _gene_lists
         gene_lists = _gene_lists(config)
@@ -958,6 +959,8 @@ def check_gene_based_files(config, gene_lists=None) -> None:
     check_morbid_file(config)
     check_hi_file(config)
     check_clingen_file(config)
+    check_exomiser_installation(config)
+    check_phenogenius_cli(config)
     check_loeuf_file(config)
 
 

@@ -152,3 +152,30 @@ def string_is_double(value: str) -> bool:
     if value == "":
         return True
     return to_number(value) is not None
+
+
+def exec_command(cmd, cwd=None, shell: bool = False):
+    """``catch {exec ...} Message``: returns (failed, Message).
+
+    Like Tcl, the command fails when it exits with a non-zero status, writes
+    to its standard error or cannot be started. Message is the standard
+    output without its final newline, then the standard error, then
+    "child process exited abnormally" for a non-zero exit without stderr.
+    """
+    import subprocess
+    try:
+        r = subprocess.run(cmd, cwd=cwd, shell=shell, stdin=subprocess.DEVNULL,
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    except OSError as exc:
+        name = cmd if isinstance(cmd, str) else cmd[0]
+        return True, f'couldn\'t execute "{name}": {exc.strerror.lower() if exc.strerror else exc}'
+    out = r.stdout.decode("utf-8", errors="surrogateescape")
+    err = r.stderr.decode("utf-8", errors="surrogateescape")
+    out = out[:-1] if out.endswith("\n") else out
+    err = err[:-1] if err.endswith("\n") else err
+    msg = out
+    if err:
+        msg = f"{msg}\n{err}" if msg else err
+    elif r.returncode != 0:
+        msg = f"{msg}\nchild process exited abnormally" if msg else "child process exited abnormally"
+    return (r.returncode != 0 or err != ""), msg
