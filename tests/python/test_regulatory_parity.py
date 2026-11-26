@@ -191,7 +191,8 @@ def test_regulatory_elements_match_tcl(tmp_path, input_file, case):
         results.append(root)
     out_p = results[1] / "out" / "x.annotated.tsv"
     header = open(out_p).readline() if out_p.exists() else ""
-    n_cols = len(header.rstrip("\n").split("\t"))
+    # The ranking columns come after the columns not ported in this test: checked in test_ranking_parity
+    n_cols = len(header.rstrip("\n").split("\t")) - (3 if header.rstrip("\n").endswith("ACMG_class") else 0)
     t, p = (_collect(r / "out", n_cols) for r in results)
     assert sorted(t) == sorted(p)
     for name in t:

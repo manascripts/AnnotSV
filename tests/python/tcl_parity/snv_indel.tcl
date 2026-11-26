@@ -1,7 +1,7 @@
 # Runs genesAnnotation and OrganizeAnnotation with the SNV/indel counts (VCFannotation) and the
 # compound htz (filteredVCFannotation) columns. A Tcl error writes "1" in EXIT.
 set dir [lindex $argv 0]
-foreach m {general config vcf filteredVCF genes write closestgenes} {
+foreach m {general ranking config vcf filteredVCF genes write closestgenes} {
     source $dir/share/tcl/AnnotSV/AnnotSV-$m.tcl
 }
 set auto_path [linsert $::auto_path 0 $dir/share/tcl/AnnotSV/tcllib]
@@ -16,7 +16,7 @@ array set g_AnnotSV [list annotationsDir $annDir organism Human genomeBuild GRCh
     geneBasedAnn 0 PhenoGeniusCli 0 Exomiser 0 ranking 0 candidateGenesFiltering 0 metrics us \
     rankFiltering {1 2 3 4 5 NA} promAnn 0 EAann 0 GHann 0 miRNAann 0 ABCann 0 MPRAann 0 overlap 100 \
     extann "" outputColHeader {AnnotSV_ID Samples_ID} svtTSVcol -1 samplesidTSVcol -1 vcf 0]
-foreach p {regulatoryElementsAnnotation SVprepareRanking} {proc $p args {return ""}}
+foreach p {regulatoryElementsAnnotation} {proc $p args {return ""}}
 # Not ported in this module's test: always written for Human. The test removes the "@STUB@" fields.
 foreach p {pathogenicSVannotation poPathogenicSVannotation pathoSNVindelAnnotation benignSVannotation
            poBenignSVannotation} {proc $p args {return "@STUB@"}}

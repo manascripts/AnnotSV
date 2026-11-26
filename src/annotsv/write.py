@@ -39,6 +39,7 @@ from .general import (
 from .filtered_vcf import FilteredVCF
 from .gene_based import is_candidate
 from .genes import GenesResult, TranscriptVersions, unix_sort_bed
+from .ranking import Ranking
 from .snv_indel import SnvIndelCounts
 
 GENE_COLUMNS = ("Gene_name\tClosest_left\tClosest_right\tGene_count\tTx\tTx_version\tTx_start\tTx_end"
@@ -405,6 +406,29 @@ def organize_annotation(config, genes: GenesResult, vcf_header: Optional[str] = 
         header += snv_header
     if gene_based is not None:
         header += gene_based.header()
+    # PhenoGenius and Exomiser columns: not ported yet (they come here, before the ranking)
+
+    # Preparation for the ranking (svtTSVcol / svtBEDcol are set there for a VCF input)
+    ranking = Ranking(c)
+    ranking.prepare(header)
+    human = c.get("organism") == "Human"
+    rank_filtering = _rank_filtering(c.get("rankFiltering", "1-5,NA"))
+    if human:
+        no_na = "NA" not in " ".join(rank_filtering)
+        if str(c.get("svtTSVcol", "-1")) == "-1":   # SV_type is required for the ranking of human SV
+            print("\nWARNING: AnnotSV requires the SV type (duplication, deletion...) to classify the SV")
+            print("         Not provided (svtBEDcol = -1)")
+            print("         => No SV ranking (ACMG_class feature will be set to \"NA\")\n")
+            c["ranking"] = "0"
+            ranking.enabled = False
+            if no_na:
+                print(f"\nWARNING: -rankFiltering = {tcl.format_list(rank_filtering)}")
+                print("         => SV with \"ACMG_class = NA\" will be filtered out")
+                print("         => All the SV will be filtered out\n")
+        elif no_na:
+            print(f"\nWARNING: -rankFiltering = {tcl.format_list(rank_filtering)}")
+            print("         => SV with \"ACMG_class = NA\" will be filtered out\n")
+        header += "\tAnnotSV_ranking_score\tAnnotSV_ranking_criteria\tACMG_class"
     replace_text_in_file(header, output_file)
     hcols = header.split("\t")
     i_ref = (hcols.index("REF") if "REF" in hcols else -1) - 2
@@ -504,20 +528,44 @@ def organize_annotation(config, genes: GenesResult, vcf_header: Optional[str] = 
             if annotsv_id not in text_by_id:
                 order.append(annotsv_id)
                 text_by_id[annotsv_id] = []
+            # Ranking: score computed with the full line, then completed with the split lines
+            if ranking.enabled:
+                ranking.rank(text, svtype)
             if not (c["annotationMode"] == "full" and mode == "split"):
                 text_by_id[annotsv_id].append(text)
+
+    # Finalize the ranking, then order the SV: from the higher to the lower ranking score, then
+    # from the higher to the lower Exomiser score (not ported yet: -1), then in the input order
+    if ranking.enabled:
+        ranking.achieve_all(order)
+        order = ranking.sort_ids(order, exomiser_scores=None)
 
     i_mode = hcols.index("Annotation_mode")
     i_gene = hcols.index("Gene_name")
     candidate_filtering = str(c.values.get("candidateGenesFiltering", "0")).lower() in ("1", "yes", "true", "on")
+    metrics_fr = c.get("metrics") == "fr"
     lines: List[str] = []
     for annotsv_id in order:
         for text in text_by_id[annotsv_id]:
             mode = _col(text, i_mode)
+            if mode == "full":
+                if human:
+                    score, criteria, cls = ranking.full_columns(annotsv_id, metrics_fr)
+                    text += f"\t{score}\t{criteria}\t{cls}"
+                    # To select the SV of a user-defined specific class (from 1 to 5)
+                    if cls not in rank_filtering:
+                        continue
+            elif human:
+                cls = ranking.acmg_full[annotsv_id][len("full="):]
+                if cls not in rank_filtering:
+                    continue
             if c["annotationMode"] == "full" and mode == "split":
                 continue
             if c["annotationMode"] == "split" and mode == "full":
                 continue
+            if mode != "full" and human:
+                # Ranking not available for the split lines
+                text += f"\t\t\t{ranking.acmg_full[annotsv_id]}"
             # To select only the SV annotations overlapping a gene from the "candidateGenesFile"
             if candidate_filtering:
                 gene_name = _col(text, i_gene)
@@ -545,6 +593,23 @@ def organize_annotation(config, genes: GenesResult, vcf_header: Optional[str] = 
     print(f"\n...output columns annotation:")
     print("\t" + header.replace("\t", ";") + "\n")
     return output_file
+
+
+def _rank_filtering(value) -> List[str]:
+    """``-rankFiltering`` as a list (configureAnnotSV), e.g. "3-5,NA" -> 3 4 5 NA."""
+    if not isinstance(value, str):
+        return [str(v) for v in value]
+    if not re.search(",|-", value) and " " in value:
+        return value.split()
+    ranks: List[str] = []
+    while True:
+        m = re.search(r"([1-5])-([1-5])", value)
+        if not m:
+            break
+        ranks.extend(str(i) for i in range(int(m.group(1)), int(m.group(2)) + 1))
+        value = re.sub(r"[1-5]-[1-5]", "", value, count=1)
+    ranks.extend(i for i in value.split(",") if i in ("1", "2", "3", "4", "5", "NA"))
+    return sorted(set(ranks))
 
 
 def _col(text: str, i: int) -> str:

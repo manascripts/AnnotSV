@@ -1,7 +1,7 @@
 # Runs checkGenesRefSeqFile, checkPathogenicFiles, checkPathoSNVindelFile, genesAnnotation and
 # OrganizeAnnotation with the pathogenic SV, po pathogenic SV and pathogenic SNV/indel columns.
 set dir [lindex $argv 0]
-foreach m {general config vcf genes write closestgenes omim pathogenicsv pathogenicsnvindel} {
+foreach m {general ranking config vcf genes write closestgenes omim pathogenicsv pathogenicsnvindel} {
     source $dir/share/tcl/AnnotSV/AnnotSV-$m.tcl
 }
 set auto_path [linsert $::auto_path 0 $dir/share/tcl/AnnotSV/tcllib]
@@ -14,7 +14,7 @@ array set g_AnnotSV [list annotationsDir $annDir organism Human genomeBuild $bui
     geneBasedAnn 0 PhenoGeniusCli 0 Exomiser 0 ranking 0 candidateGenesFiltering 0 metrics us \
     rankFiltering {1 2 3 4 5 NA} promAnn 0 EAann 0 GHann 0 miRNAann 0 ABCann 0 MPRAann 0 overlap 100 \
     extann "" outputColHeader [concat AnnotSV_ID Samples_ID $cols] svtTSVcol -1 samplesidTSVcol -1 vcf 0]
-foreach p {regulatoryElementsAnnotation SVprepareRanking} {proc $p args {return ""}}
+foreach p {regulatoryElementsAnnotation} {proc $p args {return ""}}
 # Not ported yet: always written for Human, whatever the header. The test removes the "@STUB@" fields.
 foreach p {benignSVannotation poBenignSVannotation} {proc $p args {return "@STUB@"}}
 rename exit _e; set done 0

@@ -244,10 +244,9 @@ def test_pathogenic_match_tcl(tmp_path, which, case):
             assert r.returncode == 0 and "Error" not in r.stdout[-300:], (r.stdout + r.stderr)[-3000:]
             tsv = out / "x.annotated.tsv"
             if tsv.exists():
-                # Not ported yet: the benign stubs and the ranking columns at the end of each line.
-                # The rest of each line is compared whole (extra empty fields included).
+                # Not ported yet: the benign stubs. Each line is compared whole (extra empty fields included).
                 lines = tsv.read_text().replace("\t@STUB@", "").split("\n")
-                tsv.write_text("\n".join("\t".join(l.split("\t")[:-len(RANKING)]) if l else l for l in lines))
+                tsv.write_text("\n".join(lines))
         else:
             _python(ann, str(out), inp, mode, cols)
         results.append(root)

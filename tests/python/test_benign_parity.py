@@ -313,11 +313,6 @@ def _run(tmp_path, input_file, case):
                                 metrics, bcftools], capture_output=True, text=True)
             assert r.returncode == 0, (r.stdout + r.stderr)[-3000:]
             tcl_err = r.stderr
-            tsv = out / "x.annotated.tsv"
-            if tsv.exists():
-                # Not ported yet: the ranking columns at the end of each line.
-                lines = tsv.read_text().split("\n")
-                tsv.write_text("\n".join("\t".join(l.split("\t")[:-len(RANKING)]) if l else l for l in lines))
         else:
             _python(ann, str(out), inp, mode, cols, metrics, bcftools)
         results.append(root)
