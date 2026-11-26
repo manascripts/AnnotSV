@@ -15,7 +15,7 @@ import re
 import time
 from typing import Dict, List
 
-from . import tcl
+from . import helpers, tcl
 from .general import lines_from_file, write_text_in_file
 from .ncbi import search_ncbi_gene_id
 
@@ -35,7 +35,7 @@ def check_phenogenius_cli(config) -> None:
     if c["hpo"] == "":
         c["PhenoGeniusCli"] = "0"  # No HPO terms in INPUT
         return
-    failed, message = tcl.exec_command([f"{c['bashDir']}/checkPhenoGeniusCliInstall.sh", f"{c['installDir']}/share"])
+    failed, message = helpers.check_phenogenius_cli_install(f"{c['installDir']}/share")
     if not failed:
         print("\tINFO: AnnotSV takes use of PhenoGenius (Yauy et al., 2023) for the phenotype-driven analysis.")
         c["PhenoGeniusCli"] = "1"

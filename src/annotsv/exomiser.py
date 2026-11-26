@@ -27,7 +27,7 @@ import urllib.error
 import urllib.request
 from typing import Dict, List, Optional
 
-from . import tcl
+from . import helpers, tcl
 from .general import content_from_file, lines_from_file, write_text_in_file
 from .ncbi import search_ncbi_gene_id
 
@@ -208,7 +208,7 @@ class Exomiser:
         return str(self.config.get("Exomiser", "0")) == "1"
 
     def _free_port(self) -> int:
-        failed, message = tcl.exec_command(["bash", f"{self.config['bashDir']}/searchForAFreePortNumber.sh"])
+        failed, message = helpers.search_for_a_free_port()
         if not failed:
             try:
                 return int(message)

@@ -39,12 +39,15 @@ cd AnnotSV
 python3 -m pip install .          # or "pip install -e ." to work on the code
 ```
 
-This installs two commands:
+This installs three commands:
 
 - `AnnotSV`, which replaces `bin/AnnotSV` (`python3 -m annotsv` works too)
 - `AnnotSV-install`, which replaces `bin/INSTALL_annotations.sh` and the data targets of the `Makefile`
+- `AnnotSV-liftover`, which replaces `share/tcl/AnnotSV/Scripts/lift_Over_a_BED_file.tcl` (`AnnotSV-liftover BEDfileToLift outputFile chainFile [liftoverTool]`)
 
-`bedtools` (and `bcftools` for `-snvIndelFiles`) must be in your `PATH`, as with the Tcl version. Exomiser also needs `java`.
+`bedtools` (and `bcftools` for `-snvIndelFiles`) must be in your `PATH`, as with the Tcl version. Exomiser also needs `java`, PhenoGenius `poetry` and `git`, and `AnnotSV-liftover` UCSC's `liftOver`.
+
+The Tcl sources (`share/tcl`) and bash helpers (`share/bash`) stay in the repository as the reference for the parity tests; the Python package does not use them.
 
 ### Annotations
 
