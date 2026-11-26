@@ -664,6 +664,9 @@ class RegulatoryResult:
     hi: Dict[str, str] = field(default_factory=dict)
     ts: Dict[str, str] = field(default_factory=dict)
     all_regulated_genes: List[str] = field(default_factory=list)
+    # g_PhenoGeniusCli / g_Exomiser (phenogenius.PhenoGenius, exomiser.Exomiser)
+    phenogenius: object = None
+    exomiser: object = None
 
 
 class _Recorder:
@@ -717,17 +720,20 @@ def regulatory_elements_annotation(config, all_genes_overlapped: List[str],
                                    phenogenius=None, exomiser=None) -> RegulatoryResult:
     """regulatoryElementsAnnotation.
 
-    ``phenogenius`` / ``exomiser`` stand for the not yet ported PhenoGenius and
-    Exomiser modules: objects with ``run(all_genes)`` and
-    ``annotation(gene, field)`` (``PhenoGeniusCliAnnotation``,
-    ``ExomiserAnnotation``). They are needed only with ``-hpo``.
+    ``phenogenius`` / ``exomiser``: the ``phenogenius.PhenoGenius`` and
+    ``exomiser.Exomiser`` objects, run here on every overlapped or regulated
+    gene (with ``-hpo``), then used by OrganizeAnnotation.
     """
     c = config
     gl = _gene_lists(c)
+    if phenogenius is None:
+        from .phenogenius import PhenoGenius
+        phenogenius = PhenoGenius(c)
+    if exomiser is None:
+        from .exomiser import Exomiser
+        exomiser = Exomiser(c)
     pheno_on = str(c.get("PhenoGeniusCli", "0")) == "1"
     exo_on = str(c.get("Exomiser", "0")) == "1"
-    if (pheno_on and phenogenius is None) or (exo_on and exomiser is None):
-        raise NotImplementedError("PhenoGenius and Exomiser are not ported to Python yet")
     reselect1 = str(c["REselect1"]) == "1"
     reselect2 = str(c["REselect2"]) == "1"
     rereport = str(c["REreport"]) == "1"
@@ -850,8 +856,11 @@ def regulatory_elements_annotation(config, all_genes_overlapped: List[str],
         phenogenius.run(all_genes)
     if exo_on and all_genes:
         exomiser.run(all_genes)
+    # A tool that failed to run is turned off (g_AnnotSV(PhenoGeniusCli/Exomiser) set to 0)
+    pheno_on = str(c.get("PhenoGeniusCli", "0")) == "1"
+    exo_on = str(c.get("Exomiser", "0")) == "1"
 
-    result = RegulatoryResult(all_regulated_genes=all_regulated)
+    result = RegulatoryResult(all_regulated_genes=all_regulated, phenogenius=phenogenius, exomiser=exomiser)
     for g in all_regulated:
         if g in clingen_hi:
             result.hi[g] = clingen_hi[g]

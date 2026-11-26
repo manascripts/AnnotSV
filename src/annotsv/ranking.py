@@ -13,7 +13,7 @@ the ranking part of ``OrganizeAnnotation`` (``AnnotSV-write.tcl``).
 The Exomiser and PhenoGenius scores are read from the
 ``Exomiser_gene_pheno_score`` / ``PhenoGenius_specificity`` columns when the
 header has them. The best Exomiser score per SV (the second sort key) comes
-from the Exomiser module, not ported yet: ``sort_ids`` takes it as an argument
+from OrganizeAnnotation (exomiser.Exomiser): ``sort_ids`` takes it as an argument
 and defaults to ``-1`` like Tcl does when Exomiser is off.
 
 Values are compared with Tcl ``expr`` semantics (``tcl.compare``): numeric
