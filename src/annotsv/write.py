@@ -264,7 +264,7 @@ def _header_svinput_file(bed_file: str) -> str:
     return re.sub(r"(.formatted)?(.sorted)?.bed$", lambda _m: ".header.tsv", bed_file, count=1, flags=re.I)
 
 
-def build_header(config, vcf_header: Optional[str]) -> (str, int):
+def build_header(config, vcf_header: Optional[str], cytoband: str = "") -> (str, int):
     """The header up to ``RE_gene`` and ``theBEDlength``. As in Tcl, updates
     ``SVinputInfo`` / ``formatColNumber`` (VCF) or ``samplesidTSVcol`` (BED)."""
     c = config
@@ -304,7 +304,7 @@ def build_header(config, vcf_header: Optional[str]) -> (str, int):
             names = first_line_from_file(_header_svinput_file(c["bedFile"])).split("\t")
             c["samplesidTSVcol"] = str(names.index("Samples_ID") if "Samples_ID" in names else -1)
         header += "\tSamples_ID"
-    header += "\tAnnotation_mode\t" + GENE_COLUMNS
+    header += "\tAnnotation_mode" + cytoband + "\t" + GENE_COLUMNS
     return header, bed_length
 
 
@@ -349,7 +349,7 @@ def organize_annotation(config, genes: GenesResult, vcf_header: Optional[str] = 
                         closest_genes: Optional[Callable[[str, str, str], List[str]]] = None,
                         regulatory: Optional[Dict[str, str]] = None,
                         header_file_to_remove: bool = False,
-                        gene_based=None) -> str:
+                        gene_based=None, regions=None) -> str:
     """OrganizeAnnotation, core columns only. Returns the output file path.
 
     ``vcf_header`` and ``svlen`` come from the SV input step (``VCFheader``,
@@ -359,6 +359,11 @@ def organize_annotation(config, genes: GenesResult, vcf_header: Optional[str] = 
     closestGenesAnnotation and ``regulatory`` for ``g_re``. ``gene_based`` is a
     ``gene_based.GeneBasedAnnotations`` (the "Gene-based" columns, which come
     right after ``RE_gene`` until the column groups between them are ported).
+    ``regions`` is a ``regions.RegionAnnotations``: CytoBand after
+    ``Annotation_mode``, then after ``RE_gene`` the user SVincludedInFt BED
+    files, TAD, the user FtIncludedInSV, AnyOverlap and BNDproximity BED files
+    and the breakpoint columns (GC content, Repeat, Gap, SegDup, ENCODE
+    blacklist), before the gene-based columns.
     """
     c = config
     svlen = svlen if svlen is not None else {}
@@ -368,7 +373,12 @@ def organize_annotation(config, genes: GenesResult, vcf_header: Optional[str] = 
     tx_version = TranscriptVersions(c)
     output_file = f"{c['outputDir']}/{c['outputFile']}"
 
-    header, bed_length = build_header(c, vcf_header)
+    REGION_KEYS = ("SVincludedInFt", "TAD", "FtIncludedInSV", "AnyOverlap", "BNDproximity", "breakpoints")
+    cyto_header = regions.cytoband_header() if regions is not None else ""
+    header, bed_length = build_header(c, vcf_header, cyto_header)
+    if regions is not None:
+        parts = regions.header_parts()
+        header += "".join(parts[k] for k in REGION_KEYS)
     if gene_based is not None:
         header += gene_based.header()
     replace_text_in_file(header, output_file)
@@ -441,7 +451,18 @@ def organize_annotation(config, genes: GenesResult, vcf_header: Optional[str] = 
                     text += f"\t{svtype}"
                 if sid_col != -1:
                     text += f"\t{samplesid}"
-            text += f"\t{mode}\t" + "\t".join(col[k] for k in GENE_COLUMNS.split("\t"))
+            if regions is not None:
+                if mode == "split":
+                    r_start, r_end = col["Intersect_start"], col["Intersect_end"]
+                else:
+                    r_start, r_end = sv_left, sv_right
+                cyto = regions.cytoband_text(chrom, r_start, r_end)
+                text += f"\t{mode}" + (f"\t{cyto}" if cyto is not None else "")
+                text += "\t" + "\t".join(col[k] for k in GENE_COLUMNS.split("\t"))
+                r_texts = regions.texts(chrom, r_start, r_end, sv_left, sv_right, mode)
+                text += "".join(r_texts[k] for k in REGION_KEYS)
+            else:
+                text += f"\t{mode}\t" + "\t".join(col[k] for k in GENE_COLUMNS.split("\t"))
             if gene_based is not None and gene_based.enabled:
                 text += "\t" + "\t".join(gene_based.text(col["Gene_name"], mode))
 
