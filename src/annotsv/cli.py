@@ -17,6 +17,7 @@ from .config import ConfigExit, arguments_listing, collect_external_gene_files, 
 from .general import content_from_file
 from .closest_genes import ClosestGenes
 from .genes import check_genes_file, genes_annotation
+from .regulatory_elements import check_regulatory_elements_files, regulatory_elements_annotation
 from .sv_input import read_sv_input
 from .write import organize_annotation
 
@@ -77,9 +78,11 @@ def main(argv: Optional[Sequence[str]] = None, install_dir: Optional[str] = None
     try:
         sv = read_sv_input(config)
         check_genes_file(config)
+        check_regulatory_elements_files(config)
         genes = genes_annotation(config)
+        regulatory = regulatory_elements_annotation(config, genes.all_genes_overlapped)
         organize_annotation(config, genes, vcf_header=sv.vcf_header, svlen=sv.svlen,
-                            closest_genes=ClosestGenes(config),
+                            closest_genes=ClosestGenes(config), regulatory=regulatory.re,
                             header_file_to_remove=sv.header_file_to_remove)
     except ConfigExit as exc:
         print(exc.message)
