@@ -11,8 +11,10 @@ writes the output TSV with the core columns, from ``AnnotSV_ID`` to
     Overlapped_CDS_percent Frameshift Exon_count Location Location2
     Dist_nearest_SS Nearest_SS_type Intersect_start Intersect_end RE_gene
 
-The other column groups (cytoband, pathogenic/benign SV, breakpoints,
-gene-based tables, ranking...) are ported in later modules. Closest genes
+The gene-based columns (``gene_based.GeneBasedAnnotations``) follow
+``RE_gene``, and ``-candidateGenesFiltering`` is applied. The other column
+groups (cytoband, pathogenic/benign SV, breakpoints, ranking...) are ported
+in later modules and go between ``RE_gene`` and the gene-based columns. Closest genes
 and regulatory elements come in through the ``closest_genes`` and
 ``regulatory`` arguments and stay empty until those modules exist.
 """
@@ -34,6 +36,7 @@ from .general import (
     replace_text_in_file,
     write_text_in_file,
 )
+from .gene_based import is_candidate
 from .genes import GenesResult, TranscriptVersions, unix_sort_bed
 
 GENE_COLUMNS = ("Gene_name\tClosest_left\tClosest_right\tGene_count\tTx\tTx_version\tTx_start\tTx_end"
@@ -345,14 +348,17 @@ def organize_annotation(config, genes: GenesResult, vcf_header: Optional[str] = 
                         svlen: Optional[Dict[str, object]] = None,
                         closest_genes: Optional[Callable[[str, str, str], List[str]]] = None,
                         regulatory: Optional[Dict[str, str]] = None,
-                        header_file_to_remove: bool = False) -> str:
+                        header_file_to_remove: bool = False,
+                        gene_based=None) -> str:
     """OrganizeAnnotation, core columns only. Returns the output file path.
 
     ``vcf_header`` and ``svlen`` come from the SV input step (``VCFheader``,
     ``g_SVLEN``). As in Tcl, the AnnotSV_IDs are numbered afresh here (VCFsToBED
     unsets ``g_ID`` / ``g_deb`` when it is done).
     ``closest_genes(chrom, pos, "left"|"right")`` stands for
-    closestGenesAnnotation and ``regulatory`` for ``g_re``.
+    closestGenesAnnotation and ``regulatory`` for ``g_re``. ``gene_based`` is a
+    ``gene_based.GeneBasedAnnotations`` (the "Gene-based" columns, which come
+    right after ``RE_gene`` until the column groups between them are ported).
     """
     c = config
     svlen = svlen if svlen is not None else {}
@@ -363,6 +369,8 @@ def organize_annotation(config, genes: GenesResult, vcf_header: Optional[str] = 
     output_file = f"{c['outputDir']}/{c['outputFile']}"
 
     header, bed_length = build_header(c, vcf_header)
+    if gene_based is not None:
+        header += gene_based.header()
     replace_text_in_file(header, output_file)
     hcols = header.split("\t")
     i_ref = (hcols.index("REF") if "REF" in hcols else -1) - 2
@@ -434,6 +442,8 @@ def organize_annotation(config, genes: GenesResult, vcf_header: Optional[str] = 
                 if sid_col != -1:
                     text += f"\t{samplesid}"
             text += f"\t{mode}\t" + "\t".join(col[k] for k in GENE_COLUMNS.split("\t"))
+            if gene_based is not None and gene_based.enabled:
+                text += "\t" + "\t".join(gene_based.text(col["Gene_name"], mode))
 
             if annotsv_id not in text_by_id:
                 order.append(annotsv_id)
@@ -442,6 +452,8 @@ def organize_annotation(config, genes: GenesResult, vcf_header: Optional[str] = 
                 text_by_id[annotsv_id].append(text)
 
     i_mode = hcols.index("Annotation_mode")
+    i_gene = hcols.index("Gene_name")
+    candidate_filtering = str(c.values.get("candidateGenesFiltering", "0")).lower() in ("1", "yes", "true", "on")
     lines: List[str] = []
     for annotsv_id in order:
         for text in text_by_id[annotsv_id]:
@@ -450,6 +462,11 @@ def organize_annotation(config, genes: GenesResult, vcf_header: Optional[str] = 
                 continue
             if c["annotationMode"] == "split" and mode == "full":
                 continue
+            # To select only the SV annotations overlapping a gene from the "candidateGenesFile"
+            if candidate_filtering:
+                gene_name = _col(text, i_gene)
+                if gene_name == "" or not any(is_candidate(c, g) for g in gene_name.split(";")):
+                    continue
             lines.append(switch_all_coordinates_from_bed_to_vcf_in_line(text))
     write_text_in_file("\n".join(lines), output_file)
 
