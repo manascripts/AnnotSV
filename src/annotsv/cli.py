@@ -1,6 +1,6 @@
-"""Port of the ``bin/AnnotSV`` entry script (argument handling only so far).
+"""Port of the ``bin/AnnotSV`` entry script (the ``AnnotSV`` console command).
 
-The Tcl command line is kept as is: ``annotsv -SVinputFile in.vcf -option value``.
+The Tcl command line is kept as is: ``AnnotSV -SVinputFile in.vcf -option value``.
 Option names are case-insensitive and ``--option`` is accepted too.
 """
 
@@ -10,6 +10,7 @@ import os
 import platform
 import re
 import sys
+import time
 from typing import List, Optional, Sequence
 
 from . import __version__
@@ -108,9 +109,7 @@ def main(argv: Optional[Sequence[str]] = None, install_dir: Optional[str] = None
         header = re.sub(r".bed$", lambda _m: ".header.tsv", config["SVinputFile"], count=1, flags=re.I)
         if os.path.isfile(header):
             os.remove(header)
-
-    # The other annotation sources and the ranking are ported in later modules.
-    print("Only the core gene annotation columns are ported to Python so far.", file=sys.stderr)
+    print(f"\n...AnnotSV is done with the analysis ({time.strftime('%B %d %Y - %H:%M')})")
     return 0
 
 
