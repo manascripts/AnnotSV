@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "annotsv"
+dynamic = ["version"]
+description = "Structural variation annotation and ranking (Python port of AnnotSV)"
+readme = "README.md"
+license = { text = "GPL-3.0-or-later" }
+requires-python = ">=3.9"
+
+[project.scripts]
+annotsv = "annotsv.cli:main"
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[tool.setuptools.dynamic]
+version = { attr = "annotsv.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests/python"]
+pythonpath = ["src"]
