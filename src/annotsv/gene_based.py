@@ -1098,6 +1098,7 @@ class GeneBasedAnnotations:
         merged = merge_annotation(found, nb)
         if merged == "":
             return [""]
+        # Tcl parity: these regexps run on the whole path, not only on the file name
         is_clingen = re.search("ClinGenAnnotations.tsv", f) is not None
         is_omim1 = re.search("OMIM-1-annotations.tsv", f) is not None
         is_morbid_f = re.search("morbid", f) is not None
@@ -1128,6 +1129,7 @@ class GeneBasedAnnotations:
                     if "yes" in v:
                         mx = "yes"
                 elif is_loeuf and re.fullmatch("[0-9]", v):
+                    # Tcl parity: an integer pLI (0 or 1) also takes this "min" branch
                     if v != "" and (mx == "-1000" or tcl.compare(v, mx) < 0):
                         mx = v
                 else:
