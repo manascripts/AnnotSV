@@ -30,11 +30,13 @@ import pytest
 from test_genes_parity import ROOT
 from annotsv import exomiser as exo_mod
 from annotsv import helpers as pg_helpers, tcl
-from annotsv.config import Config
+from annotsv.config import OPTION_CLI_NAMES, Config
 from annotsv.exomiser import Exomiser, check_exomiser_installation
 from annotsv.phenogenius import PhenoGenius, check_phenogenius_cli
 from annotsv.ncbi import search_ncbi_gene_id
 from annotsv.variantconvert import check_variantconvert_configfile, run_variantconvert
+
+_TCL_NAMES = {kebab: name for name, kebab in OPTION_CLI_NAMES.items()}
 
 HERE = os.path.join(os.path.dirname(__file__), "tcl_parity")
 pytestmark = pytest.mark.skipif(shutil.which("tclsh") is None, reason="tclsh not installed")
@@ -433,6 +435,9 @@ def test_variantconvert_matches_tcl(tmp_path, monkeypatch, case):
     assert sorted(p) == sorted(t)
     for name in t:
         assert p[name].split("\n") == t[name].split("\n"), name
+    # The Python port names options the Python way (--svt-bed-col): compare
+    # with the Tcl spelling (-svtBEDcol)
+    p_out = re.sub(r"--([a-z0-9-]+)", lambda m: "-" + _TCL_NAMES.get(m.group(1), m.group(1)), p_out)
     assert p_out.split("\n") == t_out.split("\n")
     if case == "bed-combined":
         assert "out/x.annotated.vcf" in t

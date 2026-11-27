@@ -1,4 +1,4 @@
-"""Port of ``share/tcl/AnnotSV/Scripts/lift_Over_a_BED_file.tcl`` (``AnnotSV-liftover``).
+"""Port of ``share/tcl/AnnotSV/Scripts/lift_Over_a_BED_file.tcl`` (``annotsv-liftover``).
 
 When performing a liftover on a BED file with more than 3 columns (with
 annotation columns), it may fail if some annotation values are empty. This:
@@ -9,7 +9,7 @@ annotation columns), it may fail if some annotation values are empty. This:
   source = "b38") in front of annotations that are genomic positions
   (e.g. 3:12345-45678 => b38_3:12345-45678)
 
-Usage: ``AnnotSV-liftover BEDfileToLift outputFile chainFile [liftoverTool]``
+Usage: ``annotsv-liftover BEDfileToLift outputFile chainFile [liftoverTool]``
 (``liftoverTool`` defaults to ``liftOver``). The temporary files are written in
 the current directory, as with the Tcl script.
 """
@@ -137,7 +137,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     if len(argv) > 1 and os.path.lexists(argv[1]):
         os.remove(argv[1])  # done before the usage check, as in the Tcl script
     if len(argv) < 3:
-        print("USAGE:\nAnnotSV-liftover BEDfileToLift outputFile chainFile {liftoverTool}")
+        print("USAGE:\nannotsv-liftover BEDfileToLift outputFile chainFile {liftoverTool}")
         return 0
     tool = argv[3] if len(argv) > 3 and argv[3] != "" else "liftOver"
     return lift_over_bed(argv[0], argv[1], argv[2], tool)

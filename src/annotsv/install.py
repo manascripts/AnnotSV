@@ -6,7 +6,7 @@ The code itself is installed with ``pip install .`` (it replaces the
 This command installs what pip cannot: the annotation bundles and the external
 tools AnnotSV downloads.
 
-    AnnotSV-install [--annotations-dir DIR] TARGET [TARGET ...]
+    annotsv-install [--annotations-dir DIR] TARGET [TARGET ...]
 
 Targets (Makefile target in brackets):
 
@@ -17,8 +17,8 @@ Targets (Makefile target in brackets):
 * ``exomiser-jar``    exomiser-rest-prioritiser jar          [install-exomiser-resources]
 * ``variantconvert``  git clone + pip install of variantconvert [install-variantconvert]
 
-``AnnotSV-install --annotations-dir ./AnnotSV_annotations human`` is what
-``INSTALL_annotations.sh`` did (for use with ``AnnotSV -annotationsDir``).
+``annotsv-install --annotations-dir ./AnnotSV_annotations human`` is what
+``INSTALL_annotations.sh`` did (for use with ``annotsv --annotations-dir``).
 """
 
 from __future__ import annotations
@@ -227,7 +227,7 @@ TARGETS = ("human", "mouse", "exomiser", "exomiser-jar", "variantconvert")
 
 
 def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
-    p = argparse.ArgumentParser(prog="AnnotSV-install", description=__doc__.split("\n\n")[0],
+    p = argparse.ArgumentParser(prog="annotsv-install", description=__doc__.split("\n\n")[0],
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("targets", nargs="+", choices=TARGETS, metavar="TARGET",
                    help="one or more of: " + ", ".join(TARGETS))
@@ -235,7 +235,7 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
                    help="AnnotSV install directory (default: $ANNOTSV, the source tree or the Python prefix)")
     p.add_argument("--annotations-dir", default=None,
                    help="where annotations go (default: <install-dir>/share/AnnotSV); "
-                        "pass the same directory to AnnotSV -annotationsDir")
+                        "pass the same directory to annotsv --annotations-dir")
     p.add_argument("--human-version", default=HUMAN_VERSION)
     p.add_argument("--mouse-version", default=MOUSE_VERSION)
     p.add_argument("--exomiser-version", default=EXOMISER_VERSION)
@@ -273,7 +273,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
     if ann != os.path.join(install_dir, "share", "AnnotSV"):
-        _log(f"\nInstallation completed. Use: AnnotSV -annotationsDir {ann} ...")
+        _log(f"\nInstallation completed. Use: annotsv --annotations-dir {ann} ...")
     else:
         _log("\nInstallation completed.")
     return 0

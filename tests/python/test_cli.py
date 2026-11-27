@@ -13,6 +13,27 @@ def test_help_and_no_args(capsys, install_dir):
     out = capsys.readouterr().out
     assert "Arguments are missing" in out and "OPTIONS" in out
     assert cli.main(["-help"], install_dir=install_dir) == 0
+    assert cli.main(["--help"], install_dir=install_dir) == 0
+    assert cli.main(["-h"], install_dir=install_dir) == 0
+
+
+def test_help_uses_python_style_names():
+    text = (
+        "       $ANNOTSV/bin/AnnotSV -SVinputFile 'Path' >& AnnotSV.log &\n"
+        "-annotationsDir:                Path of the annotations directory\n"
+        "-vcf:                           VCF output (-svtBEDcol needs to be defined too)\n"
+        "-help:                          More information\n"
+    )
+    out = cli.python_style_help(text).split("\n")
+    assert out[0] == "       annotsv --sv-input-file 'Path' >& AnnotSV.log &"
+    assert out[1] == "--annotations-dir               Path of the annotations directory"
+    assert out[2] == "--vcf                           VCF output (--svt-bed-col needs to be defined too)"
+    assert out[3].startswith("--help                          More")
+
+
+def test_version_double_dash(capsys, install_dir):
+    assert cli.main(["--version"], install_dir=install_dir) == 0
+    assert capsys.readouterr().out.strip() == "AnnotSV 3.5.10"
 
 
 def test_bad_option_exit_code(capsys, install_dir, sv_bed):

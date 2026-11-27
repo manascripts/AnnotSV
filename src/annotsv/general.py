@@ -327,21 +327,21 @@ def _first_data_line_length(bed_file: str) -> Optional[int]:
 
 
 def check_samplesid_bed_col(config, bed_file: str) -> None:
-    """checksamplesidBEDcol: validate ``-samplesidBEDcol`` and normalise the
+    """checksamplesidBEDcol: validate ``--samples-id-bed-col`` and normalise the
     sample separators in that column to commas (file rewritten in place)."""
     if int(config["samplesidBEDcol"]) == -1:
         return
     length = _first_data_line_length(bed_file) or 0
     col = int(config["samplesidBEDcol"])
     if col > length:
-        print(f"\nWARNING: -samplesidBEDcol = {config['samplesidBEDcol']}")
+        print(f"\nWARNING: --samples-id-bed-col = {config['samplesidBEDcol']}")
         print(f"This value should correspond to a column of {bed_file} ({length} columns)")
-        print("-samplesidBEDcol is set to -1.\n")
+        print("--samples-id-bed-col is set to -1.\n")
         config["samplesidBEDcol"] = "-1"
     elif col < 4:
-        print(f"\nWARNING: -samplesidBEDcol = {config['samplesidBEDcol']}")
+        print(f"\nWARNING: --samples-id-bed-col = {config['samplesidBEDcol']}")
         print("This value should be > 3")
-        print("-samplesidBEDcol is set to -1.\n")
+        print("--samples-id-bed-col is set to -1.\n")
         config["samplesidBEDcol"] = "-1"
 
     if int(config["samplesidBEDcol"]) == -1:
@@ -375,21 +375,21 @@ def check_samplesid_bed_col(config, bed_file: str) -> None:
 
 
 def check_svt_bed_col(config, bed_file: str) -> None:
-    """checksvtBEDcol: validate ``-svtBEDcol`` (disables ranking if invalid)."""
+    """checksvtBEDcol: validate ``--svt-bed-col`` (disables ranking if invalid)."""
     if int(config["svtBEDcol"]) == -1:
         return
     length = _first_data_line_length(bed_file) or 0
     col = int(config["svtBEDcol"])
     if col > length:
-        print(f"\nWARNING: -svtBEDcol = {config['svtBEDcol']}")
+        print(f"\nWARNING: --svt-bed-col = {config['svtBEDcol']}")
         print(f"This value should correspond to a column of {bed_file} ({length} columns)")
-        print("-svtBEDcol is set to -1. NO SV RANKING WILL BE PERFORMED.\n")
+        print("--svt-bed-col is set to -1. NO SV RANKING WILL BE PERFORMED.\n")
         config["svtBEDcol"] = "-1"
         config["ranking"] = "0"
     elif col < 4:
-        print(f"\nWARNING: -svtBEDcol = {config['svtBEDcol']}")
+        print(f"\nWARNING: --svt-bed-col = {config['svtBEDcol']}")
         print("This value should be > 3")
-        print("-svtBEDcol is set to -1. NO SV RANKING WILL BE PERFORMED.\n")
+        print("--svt-bed-col is set to -1. NO SV RANKING WILL BE PERFORMED.\n")
         config["svtBEDcol"] = "-1"
         config["ranking"] = "0"
     else:

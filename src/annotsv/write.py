@@ -432,11 +432,11 @@ def organize_annotation(config, genes: GenesResult, vcf_header: Optional[str] = 
             c["ranking"] = "0"
             ranking.enabled = False
             if no_na:
-                print(f"\nWARNING: -rankFiltering = {tcl.format_list(rank_filtering)}")
+                print(f"\nWARNING: --rank-filtering = {tcl.format_list(rank_filtering)}")
                 print("         => SV with \"ACMG_class = NA\" will be filtered out")
                 print("         => All the SV will be filtered out\n")
         elif no_na:
-            print(f"\nWARNING: -rankFiltering = {tcl.format_list(rank_filtering)}")
+            print(f"\nWARNING: --rank-filtering = {tcl.format_list(rank_filtering)}")
             print("         => SV with \"ACMG_class = NA\" will be filtered out\n")
         header += "\tAnnotSV_ranking_score\tAnnotSV_ranking_criteria\tACMG_class"
     replace_text_in_file(header, output_file)
@@ -641,7 +641,7 @@ def organize_annotation(config, genes: GenesResult, vcf_header: Optional[str] = 
 
 
 def _rank_filtering(value) -> List[str]:
-    """``-rankFiltering`` as a list (configureAnnotSV), e.g. "3-5,NA" -> 3 4 5 NA."""
+    """``--rank-filtering`` as a list (configureAnnotSV), e.g. "3-5,NA" -> 3 4 5 NA."""
     if not isinstance(value, str):
         return [str(v) for v in value]
     if not re.search(",|-", value) and " " in value:
