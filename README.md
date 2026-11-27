@@ -49,21 +49,33 @@ This installs three commands:
 
 The Tcl sources (`bin/AnnotSV`, `share/tcl`) and bash helpers (`share/bash`) stay in the repository as the reference for the parity tests; the Python package does not use them.
 
-### Annotations
+### Annotations and external tools
+
+`annotsv-install` follows the Tcl `Makefile`: with no target it does what `make install` downloads (variantconvert and
+the Exomiser rest-prioritiser jar), and the annotations are only installed when asked for, as with `make`.
 
 ```bash
+annotsv-install                          # make install: variantconvert + Exomiser jar ("base" target)
 annotsv-install human                    # make install-human-annotation (includes the Exomiser data)
 annotsv-install mouse                    # make install-mouse-annotation
-annotsv-install exomiser-jar             # make install-exomiser-resources
-annotsv-install variantconvert           # make install-variantconvert (VCF output)
+annotsv-install all-annotations          # make install-all-annotations (human + mouse)
+annotsv-install base human               # make install install-human-annotation
 ```
+
+`exomiser`, `exomiser-jar` and `variantconvert` run a single Makefile step (`install-exomiser`,
+`install-exomiser-resources`, `install-variantconvert`). As with `make`, an archive already in the annotations
+directory or the current directory is used instead of being downloaded, an interrupted download is resumed on the
+next run (`curl -C -`), and a failed `pip install` of variantconvert is reported without stopping the rest.
+
+Downloads show a progress bar on a terminal. When the output is not a terminal (cluster job logs, `| tee`), one line
+is written every 10% instead, so logs stay short. `--progress bar|log|none` overrides this.
 
 By default the annotations go in `<install dir>/share/AnnotSV`, where `annotsv` looks for them. The install dir is
 `$ANNOTSV` when set, the source tree for an editable install, otherwise the Python environment prefix (where `pip`
 puts `etc/AnnotSV/configfile`). For a separate directory (HPC, containers), use the same path for both commands:
 
 ```bash
-annotsv-install --annotations-dir ./AnnotSV_annotations human
+annotsv-install --annotations-dir ./AnnotSV_annotations base human
 annotsv --sv-input-file input.vcf --annotations-dir ./AnnotSV_annotations
 ```
 

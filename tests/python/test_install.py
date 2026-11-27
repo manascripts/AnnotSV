@@ -144,3 +144,86 @@ def test_fix_variantconvert_configs(tmp_path):
     assert "ID=chr1" in (cfg / "CHM13" / "other.json").read_text()
     for genome in ("GRCh37", "GRCh38", "CHM13"):
         assert (cfg / genome / "annotsv3_from_bed.fullsplit.local.json").exists()
+
+
+def test_targets_follow_make_order():
+    # make install = install-variantconvert install-exomiser-resources
+    assert install.expand_targets([]) == ["variantconvert", "exomiser-jar"]
+    assert install.expand_targets(["base"]) == ["variantconvert", "exomiser-jar"]
+    # install-human-annotation runs its install-exomiser prerequisite first
+    assert install.expand_targets(["human"]) == ["exomiser", "human"]
+    assert install.expand_targets(["all-annotations"]) == ["exomiser", "human", "mouse"]
+    assert install.expand_targets(["base", "human", "exomiser"]) == \
+        ["variantconvert", "exomiser-jar", "exomiser", "human"]
+
+
+def test_no_target_is_make_install(server, tmp_path, monkeypatch, capsys):
+    calls = []
+    monkeypatch.setattr(install, "install_variantconvert", lambda d, v: calls.append(d) or True)
+    inst = tmp_path / "prefix"
+    assert install.main(["--install-dir", str(inst)]) == 0
+    assert calls == [str(inst)]
+    assert (inst / "share" / "AnnotSV" / "jar" / "exomiser-rest-prioritiser-14.1.0.jar").exists()
+    assert not (inst / "share" / "AnnotSV" / "Annotations_Human").exists()   # annotations stay explicit
+    out = capsys.readouterr().out
+    assert "WARNING: Annotations need to be installed" in out and "annotsv-install human" in out
+
+
+def test_variantconvert_failure_does_not_stop_install(server, tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(install, "install_variantconvert", lambda d, v: False)
+    assert install.main(["--install-dir", str(tmp_path)]) == 0
+    assert (tmp_path / "share" / "AnnotSV" / "jar" / "exomiser-rest-prioritiser-14.1.0.jar").exists()
+    assert "variantconvert not installed" in capsys.readouterr().out
+
+
+def test_invalid_target(capsys):
+    with pytest.raises(SystemExit):
+        install.parse_args(["humans"])
+    assert "invalid choice" in capsys.readouterr().err
+
+
+def test_progress_log_mode_is_short():
+    # Not a terminal (cluster job logs): one line per 10%, not one per chunk
+    out = io.StringIO()
+    bar = install.Progress("f.tar.gz", 1000, mode="auto", stream=out)
+    assert bar.mode == "log"
+    for _ in range(1000):
+        bar.update(1)
+    bar.close()
+    lines = out.getvalue().splitlines()
+    assert lines[0] == "Downloading f.tar.gz (1000 B)"
+    assert [l.split(": ")[1].split("%")[0].strip() for l in lines[1:-1]] == \
+        ["10", "20", "30", "40", "50", "60", "70", "80", "90"]
+    assert "done, 1000 B" in lines[-1]
+
+
+def test_progress_resume_and_bar_mode():
+    out = io.StringIO()
+    bar = install.Progress("x.jar", 1000, start=550, mode="log", stream=out)
+    bar.update(100)
+    bar.close()
+    lines = out.getvalue().splitlines()
+    assert "resuming at 550 B" in lines[0]
+    assert lines[1].split(": ")[1].startswith(" 65%")    # 50% is not reported again
+    tty = io.StringIO()
+    tty.isatty = lambda: True
+    bar = install.Progress("x.jar", 1000, stream=tty)
+    assert bar.mode == "bar"
+    bar.update(500)
+    bar.close()
+    assert "[###############---------------]  50%" in tty.getvalue()
+    assert tty.getvalue().endswith("\n")
+    silent = io.StringIO()
+    bar = install.Progress("x.jar", None, mode="none", stream=silent)
+    bar.update(5)
+    bar.close()
+    assert silent.getvalue() == ""
+
+
+def test_download_reports_progress(server, tmp_path, capsys):
+    dest = tmp_path / "x.jar"
+    install.download(f"{install.EXOMISER_JAR_URL}/14.1.0/exomiser-rest-prioritiser-14.1.0.jar",
+                     str(dest), progress="log")
+    out = capsys.readouterr().out
+    assert "Downloading exomiser-rest-prioritiser-14.1.0.jar (1000 B)" in out
+    assert "done, 1000 B" in out
