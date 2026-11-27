@@ -181,7 +181,7 @@ def check_promoter_file(config) -> None:
 
     if not os.path.exists(formatted):
         print(f"\t...{c['tx']} promoters configuration ({_now()})")
-        print(f"\t   (-promoterSize = {c['promoterSize']})\n")
+        print(f"\t   (--promoter-size = {c['promoterSize']})\n")
         size = int(c["promoterSize"])
         genes_prom: Dict[str, List[str]] = {}
         l_prom: Dict[str, List[str]] = {}

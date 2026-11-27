@@ -108,9 +108,9 @@ def run_variantconvert(config, output_file: str) -> None:
     fmt = "vcf" if re.search(r"\.vcf(.gz)?$", c["SVinputFile"], re.I) else "bed"
     local = _local_configfile(c, fmt)
     if fmt == "bed" and str(c["svtBEDcol"]) == "-1":
-        print('   WARNING: With a "BED" SV input file, the user has to define the -svtBEDcol option.')
+        print('   WARNING: With a "BED" SV input file, the user has to define the --svt-bed-col option.')
         print("            => could not create the VCF output file:")
-        print(f"               -svtBEDcol {c['svtBEDcol']}")
+        print(f"               --svt-bed-col {c['svtBEDcol']}")
         return
     command = f"python3 {c['variantconvertDir']}/src/variantconvert convert -i {output_file} -o {vcf_output} -c {local}"
 

@@ -116,7 +116,44 @@ OPTIONS_OK: List[str] = (
     "samplesidBEDcol snvIndelFiles snvIndelPASS snvIndelSamples SVinputFile SVinputInfo "
     "SVminSize svtBEDcol tx txFile variantconvertDir variantconvertMode vcf"
 ).split()
-_OPTIONS_LOWER = {name.lower(): name for name in OPTIONS_OK}
+
+# Python-style (kebab-case) name of each option: "--sv-input-file" for
+# "SVinputFile". The camelCase names keep working (configfile, old scripts).
+OPTION_CLI_NAMES: Dict[str, str] = {
+    "annotationsDir": "annotations-dir", "annotationMode": "annotation-mode",
+    "bcftools": "bcftools", "bedtools": "bedtools", "benignAF": "benign-af",
+    "bracketedAltMaxSize": "bracketed-alt-max-size", "bracketedAltMode": "bracketed-alt-mode",
+    "breakpointProximity": "breakpoint-proximity", "candidateGenesFile": "candidate-genes-file",
+    "candidateGenesFiltering": "candidate-genes-filtering",
+    "candidateSnvIndelFiles": "candidate-snv-indel-files",
+    "candidateSnvIndelSamples": "candidate-snv-indel-samples", "extann": "extann",
+    "externalGeneFiles": "external-gene-files", "genomeBuild": "genome-build", "hpo": "hpo",
+    "includeCI": "include-ci", "metrics": "metrics", "minTotalNumber": "min-total-number",
+    "missingGTinSamplesid": "missing-gt-in-samples-id", "outputDir": "output-dir",
+    "outputFile": "output-file", "overlap": "overlap", "overwrite": "overwrite",
+    "promoterSize": "promoter-size", "rankFiltering": "rank-filtering", "reciprocal": "reciprocal",
+    "REreport": "re-report", "REselect1": "re-select1", "REselect2": "re-select2",
+    "samplesidBEDcol": "samples-id-bed-col", "snvIndelFiles": "snv-indel-files",
+    "snvIndelPASS": "snv-indel-pass", "snvIndelSamples": "snv-indel-samples",
+    "SVinputFile": "sv-input-file", "SVinputInfo": "sv-input-info", "SVminSize": "sv-min-size",
+    "svtBEDcol": "svt-bed-col", "tx": "tx", "txFile": "tx-file",
+    "variantconvertDir": "variantconvert-dir", "variantconvertMode": "variantconvert-mode",
+    "vcf": "vcf",
+}
+
+
+def _option_key(name: str) -> str:
+    """Matching key of an option name: case, "-" and "_" are ignored, so
+    "sv-input-file", "sv_input_file", "SVinputFile" and "svinputfile" are the same."""
+    return re.sub(r"[-_]", "", name).lower()
+
+
+_OPTIONS_LOWER = {_option_key(name): name for name in OPTIONS_OK}
+
+
+def cli_name(option: str) -> str:
+    """``--kebab-case`` spelling of an option (for messages and help)."""
+    return "--" + OPTION_CLI_NAMES.get(option, option)
 
 BOOLEAN_OPTIONS = (
     "candidateGenesFiltering includeCI missingGTinSamplesid overwrite reciprocal REreport "
@@ -199,19 +236,19 @@ def layout(install_dir: str) -> Dict[str, str]:
 # Parsing
 # --------------------------------------------------------------------------
 def _strip_option_name(name: str) -> str:
-    # Tcl: regsub "^-|:[ \t]" (first match only). We also accept "--name"
-    # for the Python CLI convenience.
+    # Tcl: regsub "^-|:[ \t]" (first match only). "--name" (the documented
+    # Python style) and "--name=value" are accepted too.
     if name.startswith("--"):
         name = name[1:]
     return re.sub(r"^-|:[ \t]", "", name, count=1)
 
 
 def _canonical(name: str) -> Optional[str]:
-    return _OPTIONS_LOWER.get(name.lower())
+    return _OPTIONS_LOWER.get(_option_key(name))
 
 
 def _unknown(name: str, configfile: bool) -> ConfigExit:
-    lines = [f'"{name}" option not known.', "For more information on the arguments, please use the -help option"]
+    lines = [f'"{name}" option not known.', "For more information on the arguments, please use the --help option"]
     if configfile:
         lines = [BANNER] + lines + [BANNER]
     return ConfigExit("\n".join(lines), 2)
@@ -220,8 +257,14 @@ def _unknown(name: str, configfile: bool) -> ConfigExit:
 def _pairs(argv: Sequence[str]):
     """Yield ``(name, value)`` pairs like the Tcl ``while {$j < llength}`` loop
     (a trailing option without a value is ignored)."""
-    for i in range(0, len(argv) - 1, 2):
-        yield _strip_option_name(argv[i]), argv[i + 1]
+    args: List[str] = []
+    for arg in argv:
+        if arg.startswith("--") and "=" in arg:
+            args.extend(arg.split("=", 1))
+        else:
+            args.append(arg)
+    for i in range(0, len(args) - 1, 2):
+        yield _strip_option_name(args[i]), args[i + 1]
 
 
 def find_configfile(config: Config) -> str:
@@ -369,9 +412,9 @@ def validate(config: Config, check_tools: bool = True,
     # SVinputFile
     if c["SVinputFile"] == "":
         raise ConfigExit(
-            "AnnotSV needs in argument the path of your bed or VCF input file (-SVinputFile ...) - Exit with error.", 2)
+            "AnnotSV needs in argument the path of your bed or VCF input file (--sv-input-file ...) - Exit with error.", 2)
     if not re.search(r"\.(bed|vcf(.gz)?)$", c["SVinputFile"], re.I):
-        raise _bad(f"Bad option value: -SVinputFile = {c['SVinputFile']}",
+        raise _bad(f"Bad option value: --sv-input-file = {c['SVinputFile']}",
                    'Extension file should be ".bed" or ".vcf" - Exit with error.')
     if not os.path.exists(c["SVinputFile"]):
         raise _bad(f"Bad value for the SVinputFile option, file does not exist ({c['SVinputFile']}) - Exit with error.")
@@ -381,24 +424,24 @@ def validate(config: Config, check_tools: bool = True,
     # bracketedAltMaxSize: positive float
     v = c["bracketedAltMaxSize"]
     if not tcl.string_is_double(v) or tcl.compare(v, "0") < 0:
-        raise _bad(f"Bad option value: -bracketedAltMaxSize = {v}", "Should be a positive float, default = 10")
+        raise _bad(f"Bad option value: --bracketed-alt-max-size = {v}", "Should be a positive float, default = 10")
 
     # benignAF: [0.001-0.1]
     v = c["benignAF"]
     if not tcl.string_is_double(v) or tcl.compare(v, "0.001") < 0 or tcl.compare(v, "0.1") > 0:
-        raise _bad(f"Bad option value: -benignAF = {v}", "Should be in the [0.001-0.1] range values, default = 0.01")
+        raise _bad(f"Bad option value: --benign-af = {v}", "Should be in the [0.001-0.1] range values, default = 0.01")
 
     # metrics: us or fr (warning only)
     if c["metrics"] not in ("us", "fr"):
         print(BANNER)
-        print(f"Bad option value: -metrics = {c['metrics']}")
+        print(f"Bad option value: --metrics = {c['metrics']}")
         print('Should be "us" or "fr" - Continue with the "us" default.')
         print(BANNER)
         c["metrics"] = "us"
 
     for key in BOOLEAN_OPTIONS:
         if c[key] not in ("1", "0"):
-            raise _bad(f"Bad option value: -{key} = {c[key]}", 'Should be "1" or "0"')
+            raise _bad(f"Bad option value: {cli_name(key)} = {c[key]}", 'Should be "1" or "0"')
 
     # hpo: comma, semicolon, pipe or space separated HP:nnnn terms
     correct, display = [], []
@@ -442,7 +485,7 @@ def validate(config: Config, check_tools: bool = True,
         c["outputFile"] = re.sub(r"(\.bed|\.vcf(\.gz)?)$", ".annotated.tsv",
                                  os.path.basename(c["SVinputFile"]), flags=re.I)
     if c["overwrite"] == "0" and os.path.exists(f"{c['outputDir']}/{c['outputFile']}"):
-        raise _bad("Bad value for the -outputFile option, file already exists "
+        raise _bad("Bad value for the --output-file option, file already exists "
                    f"({c['outputDir']}/{c['outputFile']}) - Exit with error.")
     c["outputDir"] = os.path.abspath(c["outputDir"])
 
@@ -450,7 +493,7 @@ def validate(config: Config, check_tools: bool = True,
         _check_tools(c, tool_runner)
 
     if c["tx"] not in ("RefSeq", "ENSEMBL"):
-        raise _bad(f"Bad option value: -tx = {c['tx']}", 'Should be "RefSeq" or "ENSEMBL"')
+        raise _bad(f"Bad option value: --tx = {c['tx']}", 'Should be "RefSeq" or "ENSEMBL"')
 
     if c["txFile"] != "" and not os.path.exists(c["txFile"]):
         raise _bad(f"Bad value for the txFile option, file does not exist ({c['txFile']}) - Exit with error.")
@@ -474,11 +517,11 @@ def validate(config: Config, check_tools: bool = True,
             raise _bad(f"Bad value for the {key} option ({c[key]}), should be a positive integer - Exit with error.")
 
     if c["annotationMode"] not in ("both", "full", "split"):
-        raise _bad(f"Bad option value: -annotationMode = {c['annotationMode']}",
+        raise _bad(f"Bad option value: --annotation-mode = {c['annotationMode']}",
                    'Should be "both", "full" or "split"')
 
     if c["variantconvertMode"] not in ("combined", "full", "fullsplit"):
-        raise _bad(f"Bad option value: -variantconvertMode = {c['variantconvertMode']}",
+        raise _bad(f"Bad option value: --variantconvert-mode = {c['variantconvertMode']}",
                    'Should be "combined", "full" or "fullsplit"')
 
     _resolve_samples(c, "snvIndelFiles", "snvIndelSamples")
@@ -502,11 +545,11 @@ def validate(config: Config, check_tools: bool = True,
         except re.error:
             ok = False
         if not ok:
-            raise _bad(f"Bad option value: -bracketedAltMode = {c['bracketedAltMode']}",
+            raise _bad(f"Bad option value: --bracketed-alt-mode = {c['bracketedAltMode']}",
                        'Should be "ALL", "BND", "DEL", "DUP", "INS" or "INV"')
 
     if not re.search(_GENOME_BUILD_RE, c["genomeBuild"], re.I):
-        raise _bad(f"Bad option value: -genomeBuild = {c['genomeBuild']}",
+        raise _bad(f"Bad option value: --genome-build = {c['genomeBuild']}",
                    'Should be "GRCh37", "GRCh38", "CHM13", "mm39", "mm9" or "mm10"')
     if re.search(_HUMAN_RE, c["genomeBuild"], re.I):
         c["organism"] = "Human"
@@ -539,7 +582,7 @@ def configure(argv: Sequence[str], install_dir: Optional[str] = None, check_tool
     config.values.update(layout(install_dir or default_install_dir()))
 
     for name, value in _pairs(argv):
-        if name == "SVinputFile":
+        if _canonical(name) == "SVinputFile":
             config["SVinputFile"] = value
 
     configfile = find_configfile(config)
@@ -597,6 +640,6 @@ def arguments_listing(config: Config) -> str:
         value = format_value(config[key])
         if value == "":
             continue
-        lines.append(f"\t-{key} {value}")
+        lines.append(f"\t{cli_name(key)} {value}")
     lines.append(stars + "\n")
     return "\n".join(lines)

@@ -195,7 +195,7 @@ def test_liftover_usage_and_tool_error_match_tcl(tmp_path, capsys, monkeypatch):
             (d / "in.bed").write_text(BED)
             (d / "out.bed").write_text("old")
             log = _run_tcl(d, args) if side == "t" else _run_py(d, args, capsys, monkeypatch)
-            res.append((_norm(log).replace(LIFT_TCL, "AnnotSV-liftover"), sorted(os.listdir(d))))
+            res.append((_norm(log).replace(LIFT_TCL, "annotsv-liftover"), sorted(os.listdir(d))))
         assert res[1] == res[0]
 
 

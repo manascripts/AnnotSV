@@ -10,12 +10,14 @@ readme = "README.md"
 license = { text = "GPL-3.0-or-later" }
 requires-python = ">=3.9"
 
-# "AnnotSV" replaces bin/AnnotSV (one name only: "annotsv" would clash with it
-# on case-insensitive file systems; "python -m annotsv" also works)
+# "annotsv" replaces bin/AnnotSV ("python -m annotsv" also works). bin/AnnotSV
+# is the Tcl reference and is not installed by pip; do not "make install" the
+# Tcl version into the same prefix on a case-insensitive file system (macOS),
+# where bin/AnnotSV and bin/annotsv are the same file.
 [project.scripts]
-AnnotSV = "annotsv.cli:main"
-AnnotSV-install = "annotsv.install:main"
-AnnotSV-liftover = "annotsv.liftover:main"
+annotsv = "annotsv.cli:main"
+annotsv-install = "annotsv.install:main"
+annotsv-liftover = "annotsv.liftover:main"
 
 [project.optional-dependencies]
 test = ["pytest"]
@@ -28,7 +30,7 @@ where = ["src"]
 
 # Non-Python files AnnotSV reads at run time, installed under sys.prefix with
 # the Makefile layout (default_install_dir() finds them there). Annotations
-# are not packaged: see "AnnotSV-install".
+# are not packaged: see "annotsv-install".
 [tool.setuptools.data-files]
 "etc/AnnotSV" = ["etc/AnnotSV/configfile", "etc/AnnotSV/application.properties"]
 "share/doc/AnnotSV" = ["commandLineOptions.txt", "License.txt", "changeLog.txt"]

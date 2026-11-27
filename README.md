@@ -29,7 +29,7 @@
 # Python version
 
 This fork ports AnnotSV from Tcl/shell to Python (package `annotsv`, in `src/annotsv`).
-The command line and the output are the same as the Tcl version.
+The output is the same as the Tcl version.
 
 ### Install
 
@@ -41,40 +41,44 @@ python3 -m pip install .          # or "pip install -e ." to work on the code
 
 This installs three commands:
 
-- `AnnotSV`, which replaces `bin/AnnotSV` (`python3 -m annotsv` works too)
-- `AnnotSV-install`, which replaces `bin/INSTALL_annotations.sh` and the data targets of the `Makefile`
-- `AnnotSV-liftover`, which replaces `share/tcl/AnnotSV/Scripts/lift_Over_a_BED_file.tcl` (`AnnotSV-liftover BEDfileToLift outputFile chainFile [liftoverTool]`)
+- `annotsv`, which replaces `bin/AnnotSV` (`python3 -m annotsv` works too)
+- `annotsv-install`, which replaces `bin/INSTALL_annotations.sh` and the data targets of the `Makefile`
+- `annotsv-liftover`, which replaces `share/tcl/AnnotSV/Scripts/lift_Over_a_BED_file.tcl` (`annotsv-liftover BEDfileToLift outputFile chainFile [liftoverTool]`)
 
-`bedtools` (and `bcftools` for `-snvIndelFiles`) must be in your `PATH`, as with the Tcl version. Exomiser also needs `java`, PhenoGenius `poetry` and `git`, and `AnnotSV-liftover` UCSC's `liftOver`.
+`bedtools` (and `bcftools` for `--snv-indel-files`) must be in your `PATH`, as with the Tcl version. Exomiser also needs `java`, PhenoGenius `poetry` and `git`, and `annotsv-liftover` UCSC's `liftOver`.
 
-The Tcl sources (`share/tcl`) and bash helpers (`share/bash`) stay in the repository as the reference for the parity tests; the Python package does not use them.
+The Tcl sources (`bin/AnnotSV`, `share/tcl`) and bash helpers (`share/bash`) stay in the repository as the reference for the parity tests; the Python package does not use them.
 
 ### Annotations
 
 ```bash
-AnnotSV-install human                    # make install-human-annotation (includes the Exomiser data)
-AnnotSV-install mouse                    # make install-mouse-annotation
-AnnotSV-install exomiser-jar             # make install-exomiser-resources
-AnnotSV-install variantconvert           # make install-variantconvert (VCF output)
+annotsv-install human                    # make install-human-annotation (includes the Exomiser data)
+annotsv-install mouse                    # make install-mouse-annotation
+annotsv-install exomiser-jar             # make install-exomiser-resources
+annotsv-install variantconvert           # make install-variantconvert (VCF output)
 ```
 
-By default the annotations go in `<install dir>/share/AnnotSV`, where `AnnotSV` looks for them. The install dir is
+By default the annotations go in `<install dir>/share/AnnotSV`, where `annotsv` looks for them. The install dir is
 `$ANNOTSV` when set, the source tree for an editable install, otherwise the Python environment prefix (where `pip`
 puts `etc/AnnotSV/configfile`). For a separate directory (HPC, containers), use the same path for both commands:
 
 ```bash
-AnnotSV-install --annotations-dir ./AnnotSV_annotations human
-AnnotSV -SVinputFile input.vcf -annotationsDir ./AnnotSV_annotations
+annotsv-install --annotations-dir ./AnnotSV_annotations human
+annotsv --sv-input-file input.vcf --annotations-dir ./AnnotSV_annotations
 ```
 
-Versions can be changed with `--human-version`, `--exomiser-version`, etc. (`AnnotSV-install --help`).
+Versions can be changed with `--human-version`, `--exomiser-version`, etc. (`annotsv-install --help`).
 
 ### Usage
 
 ```bash
-AnnotSV -SVinputFile input.vcf -outputFile output.annotated.tsv -genomeBuild GRCh38
-AnnotSV -help                            # all the options (commandLineOptions.txt)
+annotsv --sv-input-file input.vcf --output-file output.annotated.tsv --genome-build GRCh38
+annotsv --help                           # all the options
 ```
+
+Options are written in kebab-case (`--sv-input-file`, `--svt-bed-col`, `--re-report`...), and `--option=value` works too.
+Option names ignore case, `-` and `_`, so the Tcl AnnotSV spellings (`-SVinputFile input.vcf -genomeBuild GRCh38`)
+and existing configfiles keep working unchanged.
 
 ### Tests
 

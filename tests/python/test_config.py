@@ -51,6 +51,26 @@ def test_double_dash_accepted(install_dir, sv_bed):
     assert c["tx"] == "ENSEMBL"
 
 
+def test_kebab_case_options(install_dir, sv_bed):
+    c = run(["--sv-input-file", sv_bed, "--genome-build", "GRCh37", "--svt-bed-col=4",
+             "--re-report", "1", "--missing-gt-in-samples-id", "0", "--sv_min_size", "60"], install_dir)
+    assert c["SVinputFile"] == sv_bed and c["genomeBuild"] == "GRCh37"
+    assert c["svtBEDcol"] == "4" and c["REreport"] == "1"
+    assert c["missingGTinSamplesid"] == "0" and c["SVminSize"] == "60"
+
+
+def test_every_option_has_a_kebab_name():
+    assert sorted(cfg.OPTION_CLI_NAMES) == sorted(cfg.OPTIONS_OK)
+    for name, kebab in cfg.OPTION_CLI_NAMES.items():
+        assert kebab == kebab.lower() and cfg._canonical(kebab) == name
+
+
+def test_configfile_next_to_input_found_with_kebab_name(install_dir, sv_bed):
+    with open(os.path.join(os.path.dirname(sv_bed), "configfile"), "w") as f:
+        f.write("-tx:    ENSEMBL\n")
+    assert run(["--sv-input-file", sv_bed], install_dir)["tx"] == "ENSEMBL"
+
+
 @pytest.mark.parametrize("opt,val", [
     ("benignAF", "0.5"), ("benignAF", ""), ("bracketedAltMaxSize", "-1"), ("vcf", "2"),
     ("tx", "GENCODE"), ("overlap", "0"), ("overlap", "101"), ("minTotalNumber", "50"),
@@ -138,6 +158,6 @@ def test_external_gene_files_and_listing(install_dir, sv_bed):
     names = sorted(os.path.basename(p) for p in c["extann"])
     assert names == ["omim.tsv", "y.tsv.gz"] and c["geneBasedAnn"] == "1"
     listing = cfg.arguments_listing(c)
-    assert "\t-SVinputFile " + sv_bed in listing
-    assert "\t-rankFiltering 1 2 3 4 5 NA" in listing
+    assert "\t--sv-input-file " + sv_bed in listing
+    assert "\t--rank-filtering 1 2 3 4 5 NA" in listing
     assert "installDir" not in listing and "outputColHeader" not in listing
