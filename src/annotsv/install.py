@@ -6,17 +6,21 @@ The code itself is installed with ``pip install .`` (it replaces the
 This command installs what pip cannot: the annotation bundles and the external
 tools AnnotSV downloads.
 
-    annotsv-install [--annotations-dir DIR] TARGET [TARGET ...]
+    annotsv-install [--annotations-dir DIR] [TARGET ...]
 
 Targets (Makefile target in brackets):
 
-* ``human``           Annotations_Human_<v>.tar.gz + the Exomiser phenotype data
+* (none)/``base``     variantconvert + the Exomiser jar     [install]
+* ``human``           Exomiser phenotype data + Annotations_Human_<v>.tar.gz
                       [install-human-annotation, which also runs install-exomiser]
 * ``mouse``           Annotations_Mouse_<v>.tar.gz          [install-mouse-annotation]
+* ``all-annotations`` human + mouse                         [install-all-annotations]
 * ``exomiser``        <v>_phenotype.zip only                [install-exomiser]
 * ``exomiser-jar``    exomiser-rest-prioritiser jar          [install-exomiser-resources]
 * ``variantconvert``  git clone + pip install of variantconvert [install-variantconvert]
 
+As with ``make``, the annotations are never installed implicitly:
+``annotsv-install base human`` is ``make install install-human-annotation``.
 ``annotsv-install --annotations-dir ./AnnotSV_annotations human`` is what
 ``INSTALL_annotations.sh`` did (for use with ``annotsv --annotations-dir``).
 """
@@ -32,10 +36,11 @@ import stat
 import subprocess
 import sys
 import tarfile
+import time
 import urllib.error
 import urllib.request
 import zipfile
-from typing import List, Optional, Sequence
+from typing import IO, List, Optional, Sequence
 
 from .config import default_install_dir
 
@@ -56,8 +61,112 @@ def _log(msg: str = "") -> None:
     print(msg, flush=True)
 
 
-def download(url: str, dest: str) -> str:
-    """``curl -C - -LO url``: download into ``dest``, resuming a partial file."""
+# Progress display: "auto" (a redrawn bar on a terminal, a line every 10% in a
+# log file), "bar", "log" or "none". Set by --progress.
+PROGRESS = "auto"
+
+
+def _size(n: float) -> str:
+    for unit in ("B", "KiB", "MiB", "GiB"):
+        if n < 1024 or unit == "GiB":
+            return f"{n:.0f} {unit}" if unit == "B" else f"{n:.1f} {unit}"
+        n /= 1024
+    return ""
+
+
+def _duration(sec: float) -> str:
+    sec = int(sec)
+    h, rem = divmod(sec, 3600)
+    m, s = divmod(rem, 60)
+    return f"{h}h{m:02d}m" if h else f"{m}m{s:02d}s" if m else f"{s}s"
+
+
+class Progress:
+    """Download progress, the stdlib equivalent of curl's progress meter.
+
+    On a terminal the bar is redrawn in place (at most 10 times a second).
+    Otherwise (cluster job logs, ``| tee``...) one line is written per 10%,
+    or once a minute when the size is unknown, so logs stay short.
+    """
+
+    WIDTH = 30
+
+    def __init__(self, name: str, total: Optional[int], start: int = 0,
+                 mode: Optional[str] = None, stream: Optional[IO[str]] = None):
+        self.name, self.total, self.done, self.start = name, total, start, start
+        self.stream = stream or sys.stdout
+        mode = mode or PROGRESS
+        if mode == "auto":
+            isatty = getattr(self.stream, "isatty", None)
+            mode = "bar" if isatty and isatty() else "log"
+        self.mode = mode
+        self.t0 = self._last = time.monotonic()
+        self._next_pct = 10
+        if start and total:
+            self._next_pct = (start * 100 // total) // 10 * 10 + 10
+        if self.mode == "log":
+            what = f"{_size(total)}" if total else "unknown size"
+            resumed = f", resuming at {_size(start)}" if start else ""
+            self._write(f"Downloading {name} ({what}{resumed})\n")
+
+    def _write(self, text: str) -> None:
+        self.stream.write(text)
+        self.stream.flush()
+
+    def _rate(self, now: float) -> float:
+        return (self.done - self.start) / max(now - self.t0, 1e-6)
+
+    def _line(self, now: float) -> str:
+        rate = self._rate(now)
+        if self.total:
+            frac = min(self.done / self.total, 1.0)
+            eta = (self.total - self.done) / rate if rate > 0 else 0
+            return (f"{frac * 100:3.0f}%  {_size(self.done)} / {_size(self.total)}"
+                    f"  {_size(rate)}/s  ETA {_duration(eta)}")
+        return f"{_size(self.done)}  {_size(rate)}/s"
+
+    def update(self, n: int) -> None:
+        self.done += n
+        if self.mode == "none":
+            return
+        now = time.monotonic()
+        if self.mode == "bar":
+            if now - self._last >= 0.1:
+                self._last = now
+                self._draw(now)
+        elif self.total:
+            pct = self.done * 100 // self.total
+            if pct >= self._next_pct and pct < 100:
+                self._next_pct = pct // 10 * 10 + 10
+                self._write(f"  {self.name}: {self._line(now)}\n")
+        elif now - self._last >= 60:
+            self._last = now
+            self._write(f"  {self.name}: {self._line(now)}\n")
+
+    def _draw(self, now: float) -> None:
+        if self.total:
+            filled = int(self.WIDTH * min(self.done / self.total, 1.0))
+            bar = "[" + "#" * filled + "-" * (self.WIDTH - filled) + "] "
+        else:
+            bar = ""
+        self._write(f"\r{self.name}  {bar}{self._line(now)}\033[K")
+
+    def close(self) -> None:
+        if self.mode == "none":
+            return
+        now = time.monotonic()
+        if self.mode == "bar":
+            self._draw(now)
+            self._write("\n")
+        else:
+            took = _duration(now - self.t0)
+            self._write(f"  {self.name}: done, {_size(self.done)} in {took}"
+                        f" ({_size(self._rate(now))}/s)\n")
+
+
+def download(url: str, dest: str, progress: Optional[str] = None) -> str:
+    """``curl -C - -LO url``: download into ``dest``, resuming a partial file,
+    with a progress display (``progress``: see ``PROGRESS``)."""
     done = os.path.getsize(dest) if os.path.exists(dest) else 0
     req = urllib.request.Request(url, headers={"User-Agent": "AnnotSV-installer"})
     if done:
@@ -70,9 +179,19 @@ def download(url: str, dest: str) -> str:
         raise
     with resp:
         # A server that ignores Range sends the whole file again
-        mode = "ab" if done and getattr(resp, "status", 200) == 206 else "wb"
-        with open(dest, mode) as out:
-            shutil.copyfileobj(resp, out, 1 << 20)
+        resumed = bool(done) and getattr(resp, "status", 200) == 206
+        start = done if resumed else 0
+        length = resp.headers.get("Content-Length")
+        total = start + int(length) if length and length.isdigit() else None
+        bar = Progress(url.rsplit("/", 1)[-1], total, start, progress)
+        with open(dest, "ab" if resumed else "wb") as out:
+            while True:
+                chunk = resp.read(1 << 20)
+                if not chunk:
+                    break
+                out.write(chunk)
+                bar.update(len(chunk))
+        bar.close()
     return dest
 
 
@@ -132,6 +251,7 @@ def install_organism(annotations_dir: str, organism: str, version: str, keep: bo
     _log(f"\nInstallation of {organism.lower()} annotation:\n")
     os.makedirs(annotations_dir, exist_ok=True)
     archive = _fetch(f"{ANNOTATIONS_URL}/Annotations_{organism}_{version}.tar.gz", annotations_dir)
+    _log(f"Extracting {os.path.basename(archive)}")
     _extract_tar(archive, annotations_dir)
     if not keep:
         os.remove(archive)
@@ -146,6 +266,7 @@ def install_exomiser(annotations_dir: str, version: str, keep: bool = False) -> 
     dest = os.path.join(annotations_dir, "Annotations_Exomiser", version)
     os.makedirs(dest, exist_ok=True)
     archive = _fetch(f"{EXOMISER_DATA_URL}/{version}_phenotype.zip", annotations_dir)
+    _log(f"Extracting {os.path.basename(archive)}")
     _extract_zip(archive, dest)
     if not keep:
         os.remove(archive)
@@ -160,6 +281,7 @@ def install_exomiser_jar(annotations_dir: str, version: str = EXOMISER_JAR_VERSI
     instead of downloaded. (The Makefile symlink used an undefined variable
     for its name; the link is named after the jar here.)
     """
+    _log("\nInstallation of the Exomiser rest-prioritiser:\n")
     jar_dir = os.path.join(annotations_dir, "jar")
     os.makedirs(jar_dir, exist_ok=True)
     if jar_file:
@@ -171,7 +293,9 @@ def install_exomiser_jar(annotations_dir: str, version: str = EXOMISER_JAR_VERSI
         return link
     name = f"exomiser-rest-prioritiser-{version}.jar"
     target = os.path.join(jar_dir, name)
-    if not os.path.exists(target):
+    if os.path.exists(target):
+        _log(f"{name} already installed")
+    else:
         part = target + ".part"
         download(f"{EXOMISER_JAR_URL}/{version}/{name}", part)
         os.replace(part, target)
@@ -223,14 +347,35 @@ def install_variantconvert(install_dir: str, version: str = VC_VERSION) -> bool:
     return True
 
 
-TARGETS = ("human", "mouse", "exomiser", "exomiser-jar", "variantconvert")
+TARGETS = ("base", "human", "mouse", "all-annotations", "exomiser", "exomiser-jar", "variantconvert")
+
+# "make install" installs variantconvert then the Exomiser resources; the
+# annotations are separate targets that "make install-all-annotations" groups.
+ALIASES = {
+    "base": ["variantconvert", "exomiser-jar"],
+    "all-annotations": ["human", "mouse"],
+}
+
+
+def expand_targets(targets: Sequence[str]) -> List[str]:
+    """Targets in the order make runs them, each once. No target is ``make install``."""
+    out: List[str] = []
+    for t in targets or ["base"]:
+        for x in ALIASES.get(t, [t]):
+            if x == "human":
+                # install-human-annotation depends on install-exomiser: run first
+                out.append("exomiser")
+            out.append(x)
+    return list(dict.fromkeys(out))
 
 
 def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(prog="annotsv-install", description=__doc__.split("\n\n")[0],
+                                epilog=__doc__.split("\n\n", 3)[3],
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("targets", nargs="+", choices=TARGETS, metavar="TARGET",
-                   help="one or more of: " + ", ".join(TARGETS))
+    # choices= is checked by hand: with nargs="*", Python < 3.12 rejects no target
+    p.add_argument("targets", nargs="*", metavar="TARGET",
+                   help="zero or more of: " + ", ".join(TARGETS) + " (default: base)")
     p.add_argument("--install-dir", default=None,
                    help="AnnotSV install directory (default: $ANNOTSV, the source tree or the Python prefix)")
     p.add_argument("--annotations-dir", default=None,
@@ -244,35 +389,54 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
                    help="already downloaded rest-prioritiser jar to symlink instead of downloading")
     p.add_argument("--variantconvert-version", default=VC_VERSION)
     p.add_argument("--keep-archives", action="store_true", help="keep the downloaded archives")
-    return p.parse_args(argv)
+    p.add_argument("--progress", choices=("auto", "bar", "log", "none"), default="auto",
+                   help="download progress: a bar on a terminal, a line every 10%% in a log "
+                        "file (auto, the default), or none")
+    a = p.parse_args(argv)
+    for t in a.targets:
+        if t not in TARGETS:
+            p.error(f"argument TARGET: invalid choice: {t!r} (choose from {', '.join(TARGETS)})")
+    return a
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
+    global PROGRESS
     a = parse_args(argv)
+    PROGRESS = a.progress
     install_dir = os.path.abspath(a.install_dir or default_install_dir())
     ann = os.path.abspath(a.annotations_dir or os.path.join(install_dir, "share", "AnnotSV"))
     _log(f"AnnotSV install directory: {install_dir}\nAnnotations directory: {ann}")
-    targets: List[str] = list(dict.fromkeys(a.targets))
+    targets = expand_targets(a.targets)
+    annotations = {"human", "mouse"} & set(targets)
+    vc_failed = False
     try:
         for t in targets:
             if t == "human":
                 install_organism(ann, "Human", a.human_version, a.keep_archives)
-                if "exomiser" not in targets:
-                    install_exomiser(ann, a.exomiser_version, a.keep_archives)
             elif t == "mouse":
                 install_organism(ann, "Mouse", a.mouse_version, a.keep_archives)
             elif t == "exomiser":
                 install_exomiser(ann, a.exomiser_version, a.keep_archives)
             elif t == "exomiser-jar":
-                _log(f"\n--> {install_exomiser_jar(ann, a.exomiser_jar_version, a.exomiser_jar_file)}")
+                _log(f"--> {install_exomiser_jar(ann, a.exomiser_jar_version, a.exomiser_jar_file)}")
             elif t == "variantconvert":
-                if not install_variantconvert(install_dir, a.variantconvert_version):
-                    return 1
+                # As with make, a failed pip install does not stop the installation
+                vc_failed = not install_variantconvert(install_dir, a.variantconvert_version)
     except (OSError, urllib.error.URLError, tarfile.TarError, zipfile.BadZipFile,
             subprocess.CalledProcessError) as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
+        print(f"\nERROR: {exc}", file=sys.stderr)
         return 1
-    if ann != os.path.join(install_dir, "share", "AnnotSV"):
+    _log("\nDone")
+    if vc_failed:
+        _log("\nWARNING: variantconvert not installed (no VCF output); see the pip output above.")
+    custom = ann != os.path.join(install_dir, "share", "AnnotSV")
+    opt = f" --annotations-dir {ann}" if custom else ""
+    if not annotations:
+        # install-done
+        _log("\nWARNING: Annotations need to be installed:")
+        _log(f"annotsv-install{opt} human")
+        _log(f"annotsv-install{opt} mouse")
+    elif custom:
         _log(f"\nInstallation completed. Use: annotsv --annotations-dir {ann} ...")
     else:
         _log("\nInstallation completed.")
